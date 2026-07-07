@@ -52,7 +52,7 @@ Document de passation : chaque chantier ci-dessous est décrit avec assez de dé
 
 ---
 
-## §0 — Versionner avec git (5 min, à faire en premier)
+## §0 — ✅ FAIT (2026-07-08) — Versionner avec git
 
 **Pourquoi** : aucun historique, aucun retour arrière possible. Tout le reste du backlog devient
 plus sûr avec ça.
@@ -69,7 +69,15 @@ Optionnel : remote GitHub privé (utile pour §1 GitHub Pages).
 
 ---
 
-## §1 — Hébergement HTTPS (débloque le téléphone et les capteurs)
+## §1 — ⏳ PRÉPARÉ, EN ATTENTE (2026-07-08) — Hébergement HTTPS (débloque le téléphone et les capteurs)
+
+> **État** : les deux repos git existent (v2 : commits `d847188` + `bef85f2` ; v1 : `968b81d`).
+> Le workflow `.github/workflows/deploy.yml` est commité : il build avec le bon `VITE_BASE` et déploie
+> sur Pages à chaque push sur `main`. **Il manque uniquement le choix d'hébergement de l'utilisateur**
+> (GitHub Pages / Netlify Drop / tunnel de test) — il a répondu « plus tard ». Reprendre ici :
+> si GitHub → lui faire créer un repo vide dans le navigateur, puis
+> `git remote add origin <url> && git push -u origin main`, activer Settings → Pages → Source
+> « GitHub Actions », et transférer la save via Copy/Paste save (nouvelle origine).
 
 **Pourquoi** : `getUserMedia`-like, **Geolocation et devicemotion exigent un contexte sécurisé**.
 `http://192.168.x.x:4273` depuis le téléphone → capteurs GPS/podomètre silencieusement bloqués
