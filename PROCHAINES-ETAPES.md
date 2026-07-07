@@ -71,12 +71,12 @@ Optionnel : remote GitHub privé (utile pour §1 GitHub Pages).
 
 ## §1 — ✅ FAIT (2026-07-08) — Hébergement HTTPS
 
-> **Le jeu est en ligne : https://ibgold.github.io/arpent/** (repo `github.com/ibgold/arpent`,
-> compte GitHub `ibgold`). Chaque `git push` sur `main` redéploie automatiquement
-> (`.github/workflows/deploy.yml`, ~1 min). Pages activé manuellement (Settings → Pages → GitHub
-> Actions) — l'`enablement` auto échouait avec le GITHUB_TOKEN.
-> ⚠️ Les identifiants git Windows par défaut sont un AUTRE compte (`autre-compte`) : ce repo utilise
-> `credential.useHttpPath true` en config locale pour s'authentifier en `ibgold`.
+> **Le jeu est en ligne : https://ibgold.github.io/arpent/** (repo `github.com/ibgold/arpent`).
+> Chaque `git push` sur `main` redéploie automatiquement (`.github/workflows/deploy.yml`, ~1 min).
+> Pages activé manuellement (Settings → Pages → GitHub Actions) — l'`enablement` auto échouait
+> avec le GITHUB_TOKEN.
+> ⚠️ Ce repo a sa propre config git locale (`credential.useHttpPath true` + email de commit noreply) :
+> ne pas pousser avec la config globale de la machine.
 > ⚠️ Nouvelle origine = nouvelle save : transférer via Réglages → Copy/Paste save.
 > Le §2 (capteurs sur téléphone) est maintenant débloqué : ouvrir l'URL sur le téléphone.
 
