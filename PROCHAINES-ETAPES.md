@@ -69,15 +69,16 @@ Optionnel : remote GitHub privé (utile pour §1 GitHub Pages).
 
 ---
 
-## §1 — ⏳ PRÉPARÉ, EN ATTENTE (2026-07-08) — Hébergement HTTPS (débloque le téléphone et les capteurs)
+## §1 — ✅ FAIT (2026-07-08) — Hébergement HTTPS
 
-> **État** : les deux repos git existent (v2 : commits `d847188` + `bef85f2` ; v1 : `968b81d`).
-> Le workflow `.github/workflows/deploy.yml` est commité : il build avec le bon `VITE_BASE` et déploie
-> sur Pages à chaque push sur `main`. **Il manque uniquement le choix d'hébergement de l'utilisateur**
-> (GitHub Pages / Netlify Drop / tunnel de test) — il a répondu « plus tard ». Reprendre ici :
-> si GitHub → lui faire créer un repo vide dans le navigateur, puis
-> `git remote add origin <url> && git push -u origin main`, activer Settings → Pages → Source
-> « GitHub Actions », et transférer la save via Copy/Paste save (nouvelle origine).
+> **Le jeu est en ligne : https://ibgold.github.io/arpent/** (repo `github.com/ibgold/arpent`,
+> compte GitHub `ibgold`). Chaque `git push` sur `main` redéploie automatiquement
+> (`.github/workflows/deploy.yml`, ~1 min). Pages activé manuellement (Settings → Pages → GitHub
+> Actions) — l'`enablement` auto échouait avec le GITHUB_TOKEN.
+> ⚠️ Les identifiants git Windows par défaut sont un AUTRE compte (`autre-compte`) : ce repo utilise
+> `credential.useHttpPath true` en config locale pour s'authentifier en `ibgold`.
+> ⚠️ Nouvelle origine = nouvelle save : transférer via Réglages → Copy/Paste save.
+> Le §2 (capteurs sur téléphone) est maintenant débloqué : ouvrir l'URL sur le téléphone.
 
 **Pourquoi** : `getUserMedia`-like, **Geolocation et devicemotion exigent un contexte sécurisé**.
 `http://192.168.x.x:4273` depuis le téléphone → capteurs GPS/podomètre silencieusement bloqués

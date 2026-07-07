@@ -3,6 +3,9 @@
 Une PWA qui gate un vrai jeu d'action 2D (Phaser 3) derrière tes pas sur le tapis de marche.
 **L'Énergie ne s'obtient QUE par la marche** — plus tu marches, plus tu joues.
 
+**🌍 Jouer en ligne : https://ibgold.github.io/arpent/** (HTTPS — GPS et podomètre utilisables
+sur téléphone ; installable en PWA depuis le navigateur). Redéployé à chaque push sur `main`.
+
 > 📖 **[FONCTIONNEMENT.md](FONCTIONNEMENT.md) explique TOUT le jeu, système par système, chiffres inclus.**
 > Nouveautés v2 : [ROADMAP-V2.md](ROADMAP-V2.md) · référence détaillée : [GAMEPLAY.md](GAMEPLAY.md) ·
 > jardin : [GARDEN.md](GARDEN.md) · objets : [ITEMS.md](ITEMS.md) · déploiement : [DEPLOY.md](DEPLOY.md) ·
