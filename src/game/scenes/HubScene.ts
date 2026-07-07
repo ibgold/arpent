@@ -11,8 +11,11 @@ import { TEX } from '../art/textures'
 import { breathe, TINY, TINY_FOLLOWERS } from '../art/tinyDungeon'
 import { JuiceSystem } from '../systems/juice'
 
-const W = 800
-const H = 600
+// Deux dispositions : paysage (PC) et portrait (téléphone) — le village s'adapte à l'écran
+const LANDSCAPE_W = 800
+const LANDSCAPE_H = 600
+const PORTRAIT_W = 460
+const PORTRAIT_H = 780
 
 const BUILDING_SPOTS: Record<string, { x: number; y: number }> = {
   hearth: { x: 400, y: 330 },
@@ -22,6 +25,16 @@ const BUILDING_SPOTS: Record<string, { x: number; y: number }> = {
   watchtower: { x: 160, y: 400 },
   'paved-road': { x: 640, y: 400 },
   'waking-statue': { x: 250, y: 500 },
+}
+
+const BUILDING_SPOTS_PORTRAIT: Record<string, { x: number; y: number }> = {
+  hearth: { x: 230, y: 400 },
+  shrine: { x: 110, y: 320 },
+  'lumber-hut': { x: 350, y: 320 },
+  quarry: { x: 230, y: 530 },
+  watchtower: { x: 95, y: 465 },
+  'paved-road': { x: 365, y: 465 },
+  'waking-statue': { x: 130, y: 615 },
 }
 
 /** Le village : vue d'ambiance (le Foyer qui brûle, les Éveillés qui vivent) + départ des runs.
@@ -37,9 +50,22 @@ export class HubScene extends Phaser.Scene {
   private regionLabel: Phaser.GameObjects.Text | undefined
   private depthLabel: Phaser.GameObjects.Text | undefined
   private walkSpeedKmh = 0
+  /** Dimensions du monde et emplacements, choisis selon l'orientation de l'écran */
+  private W = LANDSCAPE_W
+  private H = LANDSCAPE_H
+  private spotMap = BUILDING_SPOTS
+  private isPortrait = false
 
   constructor() {
     super('Hub')
+  }
+
+  /** Zoome pour que tout le village soit visible — jamais de bâtiment coupé */
+  private fitCamera(): void {
+    const cam = this.cameras.main
+    const zoom = Math.min(this.scale.width / this.W, this.scale.height / this.H, 1)
+    cam.setZoom(zoom)
+    cam.centerOn(this.W / 2, this.H / 2)
   }
 
   create(): void {
@@ -50,22 +76,33 @@ export class HubScene extends Phaser.Scene {
     }
 
     this.juice = new JuiceSystem(this)
+    // Disposition selon l'orientation : portrait (téléphone) ou paysage (PC)
+    this.isPortrait = this.scale.height > this.scale.width
+    this.W = this.isPortrait ? PORTRAIT_W : LANDSCAPE_W
+    this.H = this.isPortrait ? PORTRAIT_H : LANDSCAPE_H
+    this.spotMap = this.isPortrait ? BUILDING_SPOTS_PORTRAIT : BUILDING_SPOTS
     // Sol surdimensionné : couvre tout le viewport même sur grands écrans
-    this.add.tileSprite(W / 2, H / 2, W * 3, H * 3, TEX.floor).setAlpha(0.8)
+    this.add.tileSprite(this.W / 2, this.H / 2, this.W * 4, this.H * 4, TEX.floor).setAlpha(0.8)
     for (let i = 0; i < 14; i++) {
       this.add
-        .image(Phaser.Math.Between(80, W - 80), Phaser.Math.Between(140, H - 60), TEX.decor(Phaser.Math.Between(0, TEX.decorCount - 1)))
+        .image(Phaser.Math.Between(80, this.W - 80), Phaser.Math.Between(140, this.H - 60), TEX.decor(Phaser.Math.Between(0, TEX.decorCount - 1)))
         .setDepth(2)
         .setAlpha(0.6)
     }
-    this.cameras.main.setBounds(0, 0, W, H)
-    this.cameras.main.centerOn(W / 2, H / 2)
+    // Responsive : le village entier tient dans le viewport ; changement d'orientation → re-layout
+    this.fitCamera()
+    const onResize = () => {
+      if (this.scale.height > this.scale.width !== this.isPortrait) this.scene.restart()
+      else this.fitCamera()
+    }
+    this.scale.on(Phaser.Scale.Events.RESIZE, onResize)
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize))
 
     this.add
-      .text(W / 2, 46, 'THE VILLAGE', { fontFamily: 'monospace', fontSize: '26px', color: '#e2e8f0' })
+      .text(this.W / 2, 46, 'THE VILLAGE', { fontFamily: 'monospace', fontSize: '26px', color: '#e2e8f0' })
       .setOrigin(0.5)
     this.add
-      .text(W / 2, 74, 'It only wakes when you walk', { fontFamily: 'monospace', fontSize: '12px', color: '#64748b' })
+      .text(this.W / 2, 74, 'It only wakes when you walk', { fontFamily: 'monospace', fontSize: '12px', color: '#64748b' })
       .setOrigin(0.5)
 
     for (const def of BUILDINGS) {
@@ -116,13 +153,13 @@ export class HubScene extends Phaser.Scene {
       const level = state.base[def.id]?.level ?? 0
       const workers = state.followers.filter((f) => f.assignedTo === def.id).length
       if (level <= 0 || workers === 0) continue
-      const spot = BUILDING_SPOTS[def.id]
+      const spot = this.spotMap[def.id]
       this.juice.textPopup(spot.x + Phaser.Math.Between(-15, 15), spot.y - 34, icons[def.produces], '#a7f3d0')
     }
   }
 
   private createBuildingVisual(id: string, name: string): void {
-    const spot = BUILDING_SPOTS[id]
+    const spot = this.spotMap[id]
     if (!spot) return
     // Les nouveaux projets réutilisent le sprite générique tant qu'ils n'ont pas leur pixel art dédié
     const texKey = this.textures.exists(TEX.building(id)) ? TEX.building(id) : TEX.structure
@@ -175,7 +212,7 @@ export class HubScene extends Phaser.Scene {
     }
     // Chaque Éveillé vit près de son lieu de travail (ou du Foyer s'il se repose)
     for (const f of followers) {
-      const anchor = BUILDING_SPOTS[f.assignedTo ?? 'hearth'] ?? BUILDING_SPOTS.hearth
+      const anchor = this.spotMap[f.assignedTo ?? 'hearth'] ?? this.spotMap.hearth
       let sprite = this.followerSprites.get(f.id)
       if (!sprite) {
         sprite = this.add
@@ -192,9 +229,9 @@ export class HubScene extends Phaser.Scene {
 
   private wanderLoop(sprite: Phaser.GameObjects.Sprite): void {
     if (!sprite.active) return
-    const anchor = (sprite.getData('anchor') as { x: number; y: number }) ?? { x: W / 2, y: H / 2 }
-    const tx = Phaser.Math.Clamp(anchor.x + Phaser.Math.Between(-55, 55), 60, W - 60)
-    const ty = Phaser.Math.Clamp(anchor.y + Phaser.Math.Between(20, 75), 120, H - 60)
+    const anchor = (sprite.getData('anchor') as { x: number; y: number }) ?? { x: this.W / 2, y: this.H / 2 }
+    const tx = Phaser.Math.Clamp(anchor.x + Phaser.Math.Between(-55, 55), 60, this.W - 60)
+    const ty = Phaser.Math.Clamp(anchor.y + Phaser.Math.Between(20, 75), 120, this.H - 60)
     this.tweens.add({
       targets: sprite,
       x: tx,
@@ -212,11 +249,11 @@ export class HubScene extends Phaser.Scene {
       ...REGIONS.filter((r) => unlocked.includes(r.id)).map((r) => r.order),
     )
 
-    const portal = this.add.sprite(W / 2, 160, TEX.portal).setInteractive({ useHandCursor: true })
+    const portal = this.add.sprite(this.W / 2, 160, TEX.portal).setInteractive({ useHandCursor: true })
     this.tweens.add({ targets: portal, scale: 1.15, angle: 360, duration: 3000, repeat: -1 })
 
     this.regionLabel = this.add
-      .text(W / 2, 205, '', { fontFamily: 'monospace', fontSize: '12px', color: '#a5b4fc', align: 'center' })
+      .text(this.W / 2, 205, '', { fontFamily: 'monospace', fontSize: '12px', color: '#a5b4fc', align: 'center' })
       .setOrigin(0.5)
 
     const mkArrow = (x: number, dir: -1 | 1) => {
@@ -226,8 +263,8 @@ export class HubScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
       arrow.on('pointerdown', () => this.cycleRegion(dir))
     }
-    mkArrow(W / 2 - 90, -1)
-    mkArrow(W / 2 + 90, 1)
+    mkArrow(this.W / 2 - 90, -1)
+    mkArrow(this.W / 2 + 90, 1)
     this.input.keyboard?.on('keydown-LEFT', () => this.cycleRegion(-1))
     this.input.keyboard?.on('keydown-RIGHT', () => this.cycleRegion(1))
 
@@ -245,10 +282,10 @@ export class HubScene extends Phaser.Scene {
           this.refreshRegionLabel()
         })
       }
-      mkDepthArrow(W / 2 - 70, -1)
-      mkDepthArrow(W / 2 + 70, 1)
+      mkDepthArrow(this.W / 2 - 70, -1)
+      mkDepthArrow(this.W / 2 + 70, 1)
       this.depthLabel = this.add
-        .text(W / 2, 262, '', { fontFamily: 'monospace', fontSize: '13px', color: '#f5c542' })
+        .text(this.W / 2, 262, '', { fontFamily: 'monospace', fontSize: '13px', color: '#f5c542' })
         .setOrigin(0.5)
     }
 
@@ -286,11 +323,11 @@ export class HubScene extends Phaser.Scene {
     const state = useGameStore.getState()
     const region = REGIONS[this.selectedRegionIdx]
     if (!this.isSelectedUnlocked()) {
-      this.juice.textPopup(W / 2, 120, 'This region is still asleep — beat the previous boss first', '#94a3b8')
+      this.juice.textPopup(this.W / 2, 120, 'This region is still asleep — beat the previous boss first', '#94a3b8')
       return
     }
     if (state.energy < BALANCE.runStartCost) {
-      this.juice.textPopup(W / 2, 120, `Need ${Math.ceil(BALANCE.runStartCost - state.energy)} more energy — keep walking!`, '#fbbf24')
+      this.juice.textPopup(this.W / 2, 120, `Need ${Math.ceil(BALANCE.runStartCost - state.energy)} more energy — keep walking!`, '#fbbf24')
       return
     }
     // Propose les contrats maudits avant d'embarquer (3 avec Dark Reputation)
