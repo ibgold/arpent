@@ -1,10 +1,10 @@
+import { BALANCE } from '../core/balance/constants'
 import type { WalkDataSource, WalkSampleCallback } from './WalkDataSource'
 
 // Capteur réel n°1 : le GPS (marche en extérieur). Haversine entre deux fixes,
 // filtrage des fixes imprécis et des vitesses non humaines. PWA : nécessite HTTPS.
+// Seuils calibrables EN LIVE : Balance Lab → 📡 Sensors (lus à chaque fix).
 
-const MAX_ACCURACY_M = 35
-const MAX_SPEED_KMH = 12
 const MIN_INTERVAL_MS = 900
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -23,6 +23,11 @@ export class GpsSource implements WalkDataSource {
   private last: { lat: number; lon: number; t: number } | undefined
   /** Dernière erreur (affichable par l'UI) */
   status: 'idle' | 'active' | 'denied' | 'unavailable' = 'idle'
+  /** Diagnostics live (affichés dans l'onglet Walk pour calibrer) */
+  fixCount = 0
+  rejectedCount = 0
+  lastAccuracyM = 0
+  lastSpeedKmh = 0
 
   onSample(cb: WalkSampleCallback): void {
     this.cb = cb
@@ -52,7 +57,12 @@ export class GpsSource implements WalkDataSource {
   }
 
   private onFix(pos: GeolocationPosition): void {
-    if ((pos.coords.accuracy ?? 999) > MAX_ACCURACY_M) return
+    this.fixCount += 1
+    this.lastAccuracyM = Math.round(pos.coords.accuracy ?? 999)
+    if ((pos.coords.accuracy ?? 999) > BALANCE.gpsMaxAccuracyM) {
+      this.rejectedCount += 1
+      return
+    }
     const now = pos.timestamp || Date.now()
     const { latitude: lat, longitude: lon } = pos.coords
     if (!this.last) {
@@ -64,8 +74,12 @@ export class GpsSource implements WalkDataSource {
     const dist = haversineM(this.last.lat, this.last.lon, lat, lon)
     const speedKmh = (dist / (dtMs / 1000)) * 3.6
     this.last = { lat, lon, t: now }
+    this.lastSpeedKmh = Math.round(speedKmh * 10) / 10
     // On ignore l'immobilité GPS (jitter) et les vitesses de véhicule : l'énergie vient de la MARCHE
-    if (speedKmh < 1 || speedKmh > MAX_SPEED_KMH) return
+    if (speedKmh < BALANCE.gpsMinSpeedKmh || speedKmh > BALANCE.gpsMaxSpeedKmh) {
+      this.rejectedCount += 1
+      return
+    }
     this.cb?.({ timestamp: now, distanceDeltaM: dist, speedKmh })
   }
 }

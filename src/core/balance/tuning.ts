@@ -133,4 +133,15 @@ export const TUNABLE_GROUPS: TunableGroup[] = [
       { key: 'seedDropUltraChance', label: 'Boss ultra-seed chance', min: 0, max: 1, step: 0.05 },
     ],
   },
+  {
+    name: 'Sensors',
+    icon: '📡',
+    items: [
+      { key: 'sensorPeakThreshold', label: 'Step peak threshold (m/s²)', min: 10, max: 16, step: 0.1 },
+      { key: 'sensorStepIntervalMs', label: 'Min ms between steps', min: 200, max: 600, step: 10 },
+      { key: 'gpsMaxAccuracyM', label: 'GPS max accuracy (m)', min: 10, max: 100, step: 5 },
+      { key: 'gpsMinSpeedKmh', label: 'GPS min speed (km/h)', min: 0, max: 3, step: 0.1 },
+      { key: 'gpsMaxSpeedKmh', label: 'GPS max speed (km/h)', min: 6, max: 20, step: 0.5 },
+    ],
+  },
 ]

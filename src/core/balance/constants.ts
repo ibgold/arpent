@@ -133,6 +133,17 @@ export const BALANCE = {
   seedDropEliteChance: 0.15,
   /** Chance que chaque graine de boss soit ultra-rare */
   seedDropUltraChance: 0.1,
+
+  // --- Capteurs réels 📡 (calibrables en live via le Balance Lab, sans redéploiement) ---
+  /** Podomètre : pic d'accélération (m/s², gravité incluse ≈ 9.81 au repos) qui compte un pas */
+  sensorPeakThreshold: 11.5,
+  /** Podomètre : intervalle minimal entre deux pas (ms) — cadence humaine max */
+  sensorStepIntervalMs: 300,
+  /** GPS : précision maximale acceptée d'un fix (m) — au-delà, fix ignoré */
+  gpsMaxAccuracyM: 35,
+  /** GPS : vitesses hors de [min, max] km/h ignorées (jitter à l'arrêt, véhicule) */
+  gpsMinSpeedKmh: 1,
+  gpsMaxSpeedKmh: 12,
 }
 
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'

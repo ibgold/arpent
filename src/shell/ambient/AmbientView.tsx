@@ -231,13 +231,24 @@ function RoadFindPanel() {
   )
 }
 
-/** Statut du capteur réel : permission, activité, erreurs — sans jargon */
+/** Statut du capteur réel : permission, activité, erreurs — plus les diagnostics de calibration */
 function SensorStatus({ mode, hint }: { mode: 'gps' | 'motion'; hint: string }) {
   const [status, setStatus] = useState<'idle' | 'active' | 'denied' | 'unavailable'>('idle')
+  const [diag, setDiag] = useState('')
   useEffect(() => {
-    const read = () => setStatus(mode === 'gps' ? walkManager.gps.status : walkManager.pedometer.status)
+    const read = () => {
+      if (mode === 'gps') {
+        const g = walkManager.gps
+        setStatus(g.status)
+        setDiag(g.fixCount > 0 ? `fixes ${g.fixCount} · rejected ${g.rejectedCount} · accuracy ${g.lastAccuracyM} m · last ${g.lastSpeedKmh} km/h` : '')
+      } else {
+        const p = walkManager.pedometer
+        setStatus(p.status)
+        setDiag(p.status === 'active' ? `steps ${p.stepsDetected} · force ${p.lastMagnitude.toFixed(1)} (peak ${p.peakMagnitude.toFixed(1)}) m/s²` : '')
+      }
+    }
     read()
-    const t = setInterval(read, 1000)
+    const t = setInterval(read, 500)
     return () => clearInterval(t)
   }, [mode])
   const label =
@@ -248,7 +259,11 @@ function SensorStatus({ mode, hint }: { mode: 'gps' | 'motion'; hint: string }) 
   return (
     <div className="mb-3 rounded-lg bg-slate-950 p-2 text-[11px]">
       <p className="font-bold text-slate-300">{label}</p>
+      {diag && <p className="mt-1 font-mono text-emerald-300/80">{diag}</p>}
       <p className="mt-1 text-slate-600">{hint}</p>
+      {mode === 'motion' && (
+        <p className="mt-1 text-slate-600">Calibrate live: Settings → ⚖️ Balance Lab → 📡 Sensors (peak threshold).</p>
+      )}
     </div>
   )
 }
