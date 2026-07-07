@@ -1,5 +1,5 @@
 # Déploiement automatique sur GitHub Pages : chaque push sur main publie le jeu en HTTPS.
-# Prérequis (une fois) : Settings → Pages → Source = "GitHub Actions" sur le repo.
+# Pages est activé automatiquement au premier run (configure-pages avec enablement).
 name: Deploy to GitHub Pages
 
 on:
@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/setup-node@v4
         with:
           node-version: 20
