@@ -75,6 +75,8 @@ export class RunScene extends Phaser.Scene {
   private challengeMults = { hp: 1, atk: 1, gold: 1, xp: 1 }
   /** Mode alternatif : boss-rush (9 boss enchaînés) ou colosseum (vagues infinies) */
   private mode: 'boss-rush' | 'colosseum' | undefined
+  /** Cages apparues cette run (cap : BALANCE.cageMaxPerRun) */
+  private cagesSpawned = 0
   private depth = 1
   /** Potion du jardin : multiplicateur d'or (Fortune) */
   private potionGoldMult = 1
@@ -145,6 +147,7 @@ export class RunScene extends Phaser.Scene {
     // Le champion apparaît dans une salle aléatoire (1-5) ; une seule fois par run — pas en Boss Rush
     this.championRoom = Phaser.Math.Between(1, BALANCE.roomsPerRegion - 1)
     this.championPending = this.mode !== 'boss-rush'
+    this.cagesSpawned = 0
     this.gold = run.gold
     this.wood = run.wood
     this.stone = run.stone
@@ -566,6 +569,9 @@ export class RunScene extends Phaser.Scene {
   }
 
   private spawnCage(): void {
+    // Les Éveillés sont un capital long terme : rare = précieux (cap dur par run)
+    if (this.cagesSpawned >= BALANCE.cageMaxPerRun) return
+    this.cagesSpawned += 1
     const pos = this.findSpawnPoint()
     this.cage = this.physics.add.sprite(pos.x, pos.y, TINY, TINY_PROPS.cage)
     this.cage.setScale(2)
@@ -900,7 +906,7 @@ export class RunScene extends Phaser.Scene {
       BALANCE.globalGoldMult *
       this.challengeMults.gold *
       Math.pow(BALANCE.depthGoldMult, this.depth - 1)
-    this.gold += Math.round(Phaser.Math.Between(...BALANCE.goldPerKill) * goldMult * (isElite ? 3 : 1))
+    this.gold += Math.round(Phaser.Math.Between(...BALANCE.goldPerKill) * goldMult * (isElite ? BALANCE.eliteGoldMult : 1))
     this.juice.burst(x, y, 0xf87171, 12, 120)
     // Orbe d'XP de run (façon Archero) : vole vers le joueur, remplit la jauge de capacité
     this.dropXpOrb(x, y, Math.max(3, Math.round(xpValue * 0.6)))
@@ -1104,6 +1110,16 @@ export class RunScene extends Phaser.Scene {
     sprite.setData('resource', kind)
     sprite.setData('amount', Phaser.Math.Between(...BALANCE.resourceDropAmount))
     sprite.setDepth(79)
+    // Anti-camouflage : les drops respirent et scintillent (ils se fondaient dans le décor)
+    this.tweens.add({ targets: sprite, y: y - 5, scale: sprite.scale * 1.15, yoyo: true, repeat: -1, duration: 500, ease: 'Sine.easeInOut' })
+    this.juice.burst(x, y, kind === 'wood' ? 0xd97706 : 0x94a3b8, 6, 60)
+    const twinkle = this.time.addEvent({
+      delay: 900, loop: true,
+      callback: () => {
+        if (!sprite.active) { twinkle.remove(); return }
+        this.juice.burst(sprite.x, sprite.y - 8, 0xfde68a, 2, 30)
+      },
+    })
   }
 
   private collectPickup(sprite: Phaser.Physics.Arcade.Sprite): void {
@@ -1171,7 +1187,9 @@ export class RunScene extends Phaser.Scene {
       return
     }
     // Deux portes, deux promesses différentes : choisis ta prochaine salle
-    const mods = [...GATE_MODS].sort(() => Math.random() - 0.5).slice(0, 2)
+    // (la promesse « cage » disparaît une fois le cap de cages de la run atteint)
+    const pool = GATE_MODS.filter((m) => m.id !== 'cage' || this.cagesSpawned < BALANCE.cageMaxPerRun)
+    const mods = [...pool].sort(() => Math.random() - 0.5).slice(0, 2)
     this.spawnGate(ARENA / 2 - 140, mods[0])
     this.spawnGate(ARENA / 2 + 140, mods[1])
     this.juice.textPopup(this.player.x, this.player.y - 30, 'Choose your path ↑', '#38bdf8')
@@ -1328,13 +1346,17 @@ export class RunScene extends Phaser.Scene {
       ;(obj as Enemy).updateAI(this.player)
     }
 
-    // Les orbes d'XP volent vers le joueur (aimant)
+    // Aimant : les orbes d'XP volent vers le joueur (170 px) ; les AUTRES ramassages
+    // (bois, pierre, graines, objets) dérivent aussi vers lui à courte portée (110 px) —
+    // fini les drops qui se fondent dans le décor et restent au sol
     for (const obj of this.pickups.getChildren()) {
-      const orb = obj as Phaser.Physics.Arcade.Sprite
-      if (!orb.active || !orb.getData('runXp')) continue
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, orb.x, orb.y)
-      if (d < 170) {
-        this.physics.moveToObject(orb, this.player, 340)
+      const p = obj as Phaser.Physics.Arcade.Sprite
+      if (!p.active) continue
+      const isOrb = !!p.getData('runXp')
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y)
+      if (isOrb ? d < 170 : d < 110) {
+        this.tweens.killTweensOf(p) // le bob ne doit pas lutter contre l'aimant
+        this.physics.moveToObject(p, this.player, isOrb ? 340 : 260)
       }
     }
   }

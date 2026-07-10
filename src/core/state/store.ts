@@ -282,9 +282,11 @@ export const useGameStore = create<Store>((set, get) => ({
         s.dailyStreak.lastDay === today
           ? s.dailyStreak
           : { days: s.dailyStreak.lastDay === yesterdayKey() ? s.dailyStreak.days + 1 : 1, lastDay: today }
-      // Quota de pas quotidien : reset au changement de jour, récompense à l'objectif
+      // Quota de pas quotidien : reset au changement de jour, récompense à l'objectif.
+      // Foulée ADAPTATIVE à la vitesse : à 3 km/h on fait des petits pas (~0,56 m), pas des foulées de 0,70 m.
+      const strideM = Math.min(0.85, Math.max(0.4, BALANCE.strideBaseM + BALANCE.stridePerKmh * speedKmh))
       const prevDaily = s.dailySteps.date === today ? s.dailySteps : { ...s.dailySteps, date: today, steps: 0, rewarded: false }
-      const newSteps = prevDaily.steps + distanceDeltaM / BALANCE.stepLengthM
+      const newSteps = prevDaily.steps + distanceDeltaM / strideM
       const goalHit = !prevDaily.rewarded && newSteps >= prevDaily.goal
       const dailySteps = { ...prevDaily, steps: newSteps, rewarded: prevDaily.rewarded || goalHit }
       const goalGold = goalHit ? BALANCE.dailyGoalGold : 0

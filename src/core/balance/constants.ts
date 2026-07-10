@@ -18,8 +18,12 @@ export const BALANCE = {
   runDrainPerRoom: 0.15,
 
   // --- Pas quotidiens : le quota santé ---
-  /** Longueur de foulée moyenne pour convertir distance → pas */
+  /** Longueur de foulée moyenne (podomètre : pas → distance) */
   stepLengthM: 0.7,
+  /** Foulée ADAPTATIVE pour compter les pas depuis la distance : foulée = base + perKmh × vitesse
+   *  (à 3 km/h ≈ 0,56 m — on marche à petits pas sur tapis lent), bornée [0.40, 0.85] m */
+  strideBaseM: 0.35,
+  stridePerKmh: 0.07,
   dailyStepGoalDefault: 6000,
   dailyStepGoalMin: 2000,
   dailyStepGoalMax: 30000,
@@ -50,8 +54,8 @@ export const BALANCE = {
   /** XP de run (orbes) : seuil du niveau n = runXpBase × runXpGrowth^(n-1) */
   runXpBase: 22,
   runXpGrowth: 1.45,
-  /** Courbe adoucie : level-up fréquents en début de partie (cadence de dopamine) */
-  xpForLevel: (level: number) => Math.round(60 * Math.pow(1.3, level - 1)),
+  /** Courbe : ~2 niveaux sur une bonne run de début (les compétences se débloquent AU FUR ET À MESURE) */
+  xpForLevel: (level: number) => Math.round(120 * Math.pow(1.4, level - 1)),
   /** Paliers de distance marchée (m) → +1 niveau bonus par palier */
   distanceMilestonesM: [1000, 3000, 6000, 10000, 15000, 21000, 30000, 42000],
 
@@ -70,8 +74,10 @@ export const BALANCE = {
   eliteHpMult: 3,
   eliteAtkMult: 1.5,
 
-  // --- Cages (disciples à secourir, 1 max par salle ; s'ouvrent au contact) ---
-  cageChancePerRoom: 0.35,
+  // --- Cages (disciples à secourir ; s'ouvrent au contact). Les Éveillés sont un capital LONG TERME :
+  //     rare = précieux. Cap dur par run + chance réduite. ---
+  cageChancePerRoom: 0.18,
+  cageMaxPerRun: 1,
 
   // --- Profondeurs : l'échelle infinie de difficulté (modèle Archero) ---
   /** Multiplicateurs composés par profondeur au-delà de la 1 */
@@ -106,7 +112,9 @@ export const BALANCE = {
   // --- Loot : les objets ne tombent presque plus des mobs (élites/boss/coffres/cages) ---
   lootDropChance: 0.04,
   rarityWeights: { common: 58, rare: 28, epic: 10, legendary: 4 },
-  goldPerKill: [3, 7] as [number, number],
+  goldPerKill: [2, 5] as [number, number],
+  /** Multiplicateur d'or des élites (l'ancien ×3 rendait l'or trop abondant) */
+  eliteGoldMult: 2,
   /** Chance qu'un boss lâche un objet unique (légendaire nommé) */
   bossUniqueChance: 0.25,
   woodDropChance: 0.12,
