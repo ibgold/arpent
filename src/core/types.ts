@@ -127,7 +127,7 @@ export interface GameSettings {
   /** Screen Wake Lock : garder l'écran allumé pendant la marche */
   keepAwake: boolean
   theme: 'dark'
-  inputMode: 'manual' | 'simulation' | 'gps' | 'motion'
+  inputMode: 'manual' | 'simulation' | 'gps' | 'motion' | 'treadmill'
   simSpeedKmh: number
   /** Jardin : Chill (fanaison douce, jamais de compostage) ou Intense (mordant, rendement +25%) */
   gardenMode: 'chill' | 'intense'

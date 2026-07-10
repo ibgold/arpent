@@ -74,6 +74,7 @@ export async function openPipWidget(): Promise<Window | null> {
       s.settings.inputMode === 'manual' ? 'manual — set your real speed'
       : s.settings.inputMode === 'gps' ? 'GPS — real outdoor distance'
       : s.settings.inputMode === 'motion' ? 'pedometer — real steps'
+      : s.settings.inputMode === 'treadmill' ? 'treadmill — Bluetooth live'
       : 'simulation'
     chestBtn.textContent = `🎁 ${s.wanderChests.stored}`
     chestBtn.style.opacity = s.wanderChests.stored > 0 ? '1' : '0.4'

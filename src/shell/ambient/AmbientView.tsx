@@ -78,6 +78,15 @@ export function AmbientView() {
         >
           {paused ? '▶ Resume walking' : '⏸ Pause walking'}
         </button>
+        {/* Le tapis connecté en Bluetooth : le mode phare (vitesse & pas réels, zéro réglage) */}
+        <button
+          onClick={() => setSettings({ inputMode: 'treadmill' })}
+          className={`mb-2 w-full rounded-lg py-2.5 text-sm font-bold ${
+            settings.inputMode === 'treadmill' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-emerald-300'
+          }`}
+        >
+          🏃 Treadmill (Bluetooth) — recommended
+        </button>
         <div className="mb-3 grid grid-cols-2 gap-2">
           {([
             { id: 'manual', label: '🎚 Manual' },
@@ -97,6 +106,7 @@ export function AmbientView() {
           ))}
         </div>
 
+        {settings.inputMode === 'treadmill' && <TreadmillPanel />}
         {settings.inputMode === 'gps' && (
           <SensorStatus
             mode="gps"
@@ -227,6 +237,63 @@ function RoadFindPanel() {
           {lastFind.isNew ? `★ NEW: ${lastDef.name}` : `${lastDef.name} → +${lastFind.essence}⚗`}
         </div>
       )}
+    </div>
+  )
+}
+
+/** Le tapis Bluetooth : bouton de connexion (geste requis) + diagnostics live vitesse/pas */
+function TreadmillPanel() {
+  const [, force] = useState(0)
+  const [connecting, setConnecting] = useState(false)
+  useEffect(() => {
+    const t = setInterval(() => force((n) => n + 1), 500)
+    return () => clearInterval(t)
+  }, [])
+  const t = walkManager.treadmill
+  const supported = t.supported
+
+  const connect = async () => {
+    setConnecting(true)
+    await t.connect()
+    setConnecting(false)
+  }
+
+  const label =
+    t.status === 'active' ? `🟢 Connected to ${t.deviceName || 'treadmill'} — just walk`
+    : t.status === 'connecting' || connecting ? '⏳ Connecting…'
+    : t.status === 'lost' ? '🔴 Connection lost — reconnect'
+    : t.status === 'denied' ? '🔴 Could not connect'
+    : t.status === 'unavailable' ? '🟠 Web Bluetooth unavailable on this browser'
+    : '⚪ Not connected'
+
+  return (
+    <div className="mb-3 rounded-lg bg-slate-950 p-3 text-xs">
+      <p className="font-bold text-slate-200">{label}</p>
+      {t.status === 'active' && (
+        <p className="mt-1 font-mono text-emerald-300/80">
+          {t.lastSpeedKmh.toFixed(1)} km/h · {t.treadmillSteps} steps · {(t.treadmillDistanceM / 1000).toFixed(2)} km
+        </p>
+      )}
+      {t.lastError && t.status === 'denied' && <p className="mt-1 text-rose-400">{t.lastError}</p>}
+      {supported ? (
+        t.status !== 'active' && (
+          <button
+            onClick={() => void connect()}
+            disabled={connecting}
+            className="mt-2 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white disabled:bg-slate-700"
+          >
+            🔗 Connect treadmill
+          </button>
+        )
+      ) : (
+        <p className="mt-1 text-slate-500">
+          This browser can't read Bluetooth. Use Chrome or Edge on Windows or Android.
+        </p>
+      )}
+      <p className="mt-2 text-slate-600">
+        Turn the treadmill on, tap Connect, then pick your treadmill in the browser popup. Its real speed and
+        steps drive the game — no manual setting. (One device at a time: close the PitPat app first.)
+      </p>
     </div>
   )
 }

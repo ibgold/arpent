@@ -3,7 +3,9 @@ import { ManualSource } from './ManualSource'
 import { SimulatedSource } from './SimulatedSource'
 import { GpsSource } from './GpsSource'
 import { PedometerSource } from './PedometerSource'
+import { TreadmillSource } from './TreadmillSource'
 import type { WalkDataSource, WalkSample } from './WalkDataSource'
+import type { GameSettings } from '../core/types'
 import { gameEvents } from '../game/bridge/events'
 
 // Singleton qui branche la source de marche active sur le store.
@@ -14,6 +16,7 @@ class WalkManager {
   readonly simulated = new SimulatedSource(4)
   readonly gps = new GpsSource()
   readonly pedometer = new PedometerSource()
+  readonly treadmill = new TreadmillSource()
   private active: WalkDataSource | undefined
   private currentSpeedKmh = 0
   private lastSampleAt = 0
@@ -24,6 +27,7 @@ class WalkManager {
     this.simulated.onSample((s) => this.handleSample(s))
     this.gps.onSample((s) => this.handleSample(s))
     this.pedometer.onSample((s) => this.handleSample(s))
+    this.treadmill.onSample((s) => this.handleSample(s))
     this.applyMode(useGameStore.getState().settings.inputMode)
     let prevMode = useGameStore.getState().settings.inputMode
     let prevSim = useGameStore.getState().settings.simSpeedKmh
@@ -46,7 +50,7 @@ class WalkManager {
     }, 1000)
   }
 
-  private applyMode(mode: 'manual' | 'simulation' | 'gps' | 'motion'): void {
+  private applyMode(mode: GameSettings['inputMode']): void {
     this.active?.stop()
     if (mode === 'simulation') {
       this.simulated.setBaseSpeed(useGameStore.getState().settings.simSpeedKmh)
@@ -55,6 +59,8 @@ class WalkManager {
       this.active = this.gps
     } else if (mode === 'motion') {
       this.active = this.pedometer
+    } else if (mode === 'treadmill') {
+      this.active = this.treadmill
     } else {
       this.active = this.manual
     }

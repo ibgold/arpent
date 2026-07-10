@@ -38,11 +38,12 @@ Gain : `0.5 ⚡/s × vitesse (km/h)`, multiplié par tous les bonus (§3). À 4 
 
 ## 2. La marche : sources et capteurs
 
-Quatre modes dans l'onglet **👟 Walk** (architecture `WalkDataSource` : une interface, quatre implémentations) :
+Cinq modes dans l'onglet **👟 Walk** (architecture `WalkDataSource` : une interface, cinq implémentations) :
 
 | Mode | Usage | Fonctionnement |
 |---|---|---|
-| 🎚 **Manual** | Tapis de marche | Tu règles le curseur sur la vitesse affichée par ton tapis. |
+| 🏃 **Treadmill (Bluetooth)** | **Le meilleur** — tapis compatible | Lit **directement** la vitesse et les pas réels du tapis par Bluetooth (Web Bluetooth). Protocole PitPat/Superun BA10 (service `0xff00`, notify `0xff02`, write `0xff01` + heartbeat). Aucun réglage, aucune synchro. **Chrome/Edge sur Windows/Android uniquement** (jamais iOS/Firefox), un appareil à la fois (fermer l'app PitPat). Bouton « Connect treadmill » → sélecteur du navigateur. |
+| 🎚 **Manual** | Tapis sans Bluetooth | Tu règles le curseur sur la vitesse affichée par ton tapis. |
 | 🤖 **Simulation** | Tests au bureau | Vitesse simulée réglable (avec micro-variations). |
 | 🛰 **GPS** | Marche en extérieur | Distance réelle entre fixes GPS (haversine). Fixes imprécis (>35 m) ignorés ; vitesses <1 ou >12 km/h ignorées (jitter, véhicule). Nécessite la permission de localisation. |
 | 📳 **Pedometer** | Tapis, téléphone en poche | Détection de pas par pics d'accélération (devicemotion) : pic >11,5 m/s², cadence max 3,3 pas/s, foulée 0,7 m. Permission explicite sur iOS. |
