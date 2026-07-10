@@ -26,7 +26,7 @@ const BTN_STYLE =
 
 export async function openPipWidget(): Promise<Window | null> {
   if (!window.documentPictureInPicture) return null
-  const pip = await window.documentPictureInPicture.requestWindow({ width: 290, height: 210 })
+  const pip = await window.documentPictureInPicture.requestWindow({ width: 290, height: 250 })
 
   pip.document.body.innerHTML = `
     <div style="font-family:ui-monospace,monospace;background:#0f172a;color:#e2e8f0;height:100vh;
@@ -42,6 +42,9 @@ export async function openPipWidget(): Promise<Window | null> {
         <button id="pip-plus" style="${BTN_STYLE}">+</button>
         <button id="pip-chest" style="${BTN_STYLE};width:56px;background:#78350f;border-color:#d97706">🎁 0</button>
       </div>
+      <button id="pip-belt" style="display:none;width:208px;height:32px;margin-top:2px;font-size:13px;
+              font-family:inherit;font-weight:bold;color:#fff;border-radius:8px;cursor:pointer;
+              background:#065f46;border:1px solid #059669">▶ Start belt</button>
       <div id="pip-reward" style="font-size:11px;color:#fbbf24;min-height:14px"></div>
       <div id="pip-mode" style="font-size:10px;color:#475569"></div>
     </div>`
@@ -55,6 +58,7 @@ export async function openPipWidget(): Promise<Window | null> {
   const modeEl = el('pip-mode')
   const pauseBtn = el('pip-pause') as HTMLButtonElement
   const chestBtn = el('pip-chest') as HTMLButtonElement
+  const beltBtn = el('pip-belt') as HTMLButtonElement
   const rewardEl = el('pip-reward')
 
   let lastEnergy = Math.floor(useGameStore.getState().energy)
@@ -78,7 +82,31 @@ export async function openPipWidget(): Promise<Window | null> {
       : 'simulation'
     chestBtn.textContent = `🎁 ${s.wanderChests.stored}`
     chestBtn.style.opacity = s.wanderChests.stored > 0 ? '1' : '0.4'
+    renderBelt()
   }
+
+  // Contrôle Bluetooth complet du tapis depuis le widget (mode treadmill connecté)
+  const renderBelt = () => {
+    const s = useGameStore.getState()
+    const t = walkManager.treadmill
+    const show = s.settings.inputMode === 'treadmill' && t.status === 'active'
+    beltBtn.style.display = show ? 'block' : 'none'
+    if (!show) return
+    const running = t.lastSpeedKmh > 0 || t.targetSpeedKmh > 0
+    if (running) {
+      const spd = t.targetSpeedKmh > 0 ? t.targetSpeedKmh : t.lastSpeedKmh
+      beltBtn.textContent = `⏹ Stop · ${spd.toFixed(1)} km/h`
+      beltBtn.style.background = '#7f1d1d'
+      beltBtn.style.borderColor = '#b91c1c'
+    } else {
+      beltBtn.textContent = '▶ Start belt'
+      beltBtn.style.background = '#065f46'
+      beltBtn.style.borderColor = '#059669'
+    }
+  }
+
+  /** Pas fin en mode tapis (0.1), plus grossier pour manuel/simulation (0.5) */
+  const speedStep = () => (useGameStore.getState().settings.inputMode === 'treadmill' ? 0.1 : 0.5)
 
   const renderPaused = (paused: boolean) => {
     pauseBtn.textContent = paused ? '▶' : '⏸'
@@ -110,8 +138,15 @@ export async function openPipWidget(): Promise<Window | null> {
   }
 
   el('pip-pause').addEventListener('click', () => walkManager.togglePause())
-  el('pip-minus').addEventListener('click', () => adjustSpeed(-0.5))
-  el('pip-plus').addEventListener('click', () => adjustSpeed(0.5))
+  el('pip-minus').addEventListener('click', () => adjustSpeed(-speedStep()))
+  el('pip-plus').addEventListener('click', () => adjustSpeed(speedStep()))
+  beltBtn.addEventListener('click', () => {
+    const t = walkManager.treadmill
+    const running = t.lastSpeedKmh > 0 || t.targetSpeedKmh > 0
+    if (running) void t.stopBelt()
+    else void t.startBelt()
+    setTimeout(renderBelt, 120)
+  })
   let rewardTimer: ReturnType<typeof setTimeout> | undefined
   chestBtn.addEventListener('click', () => {
     const reward = useGameStore.getState().openWanderChest()
@@ -124,11 +159,14 @@ export async function openPipWidget(): Promise<Window | null> {
   const unsub = useGameStore.subscribe(render)
   gameEvents.on('walk:speed', onSpeed)
   gameEvents.on('walk:paused', renderPaused)
+  // Rafraîchit l'état du bandeau même à l'arrêt (l'énergie ne change pas → render() ne tourne pas)
+  const beltTimer = setInterval(renderBelt, 500)
   render()
   renderPaused(walkManager.isPaused())
 
   pip.addEventListener('pagehide', () => {
     unsub()
+    clearInterval(beltTimer)
     gameEvents.off('walk:speed', onSpeed)
     gameEvents.off('walk:paused', renderPaused)
   })
