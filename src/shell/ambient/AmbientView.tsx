@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BALANCE } from '../../core/balance/constants'
 import { type ChestReward } from '../../core/balance/chests'
 import { chestDistanceM } from '../../core/balance/prestigePerks'
@@ -245,12 +245,23 @@ function RoadFindPanel() {
 function TreadmillPanel() {
   const [, force] = useState(0)
   const [connecting, setConnecting] = useState(false)
+  // Curseur de vitesse : valeur locale pendant le glissement, envoi débouncé (250 ms)
+  const [sliderVal, setSliderVal] = useState<number | null>(null)
+  const sendTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   useEffect(() => {
     const t = setInterval(() => force((n) => n + 1), 500)
     return () => clearInterval(t)
   }, [])
   const t = walkManager.treadmill
   const supported = t.supported
+
+  const sendSpeed = (kmh: number) => {
+    setSliderVal(kmh)
+    clearTimeout(sendTimer.current)
+    sendTimer.current = setTimeout(() => {
+      void t.setBeltSpeed(kmh).then(() => setSliderVal(null))
+    }, 250)
+  }
 
   const connect = async () => {
     setConnecting(true)
@@ -281,26 +292,38 @@ function TreadmillPanel() {
             <p className="mt-0.5 select-text font-mono text-sky-400/70">sent: {t.lastSentHex}</p>
           )}
           {/* Contrôle du tapis : ⚠ agit sur le vrai bandeau sous tes pieds */}
-          <div className="mt-2 flex items-center gap-2">
-            {t.lastSpeedKmh <= 0 && t.targetSpeedKmh <= 0 ? (
-              <button
-                onClick={() => void t.startBelt()}
-                className="flex-1 rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white"
-              >
-                ▶ Start belt
-              </button>
-            ) : (
-              <>
-                <button onClick={() => void t.adjustBeltSpeed(-0.5)} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">−</button>
-                <span className="flex-1 text-center font-mono text-sm text-emerald-300">
-                  → {(t.targetSpeedKmh > 0 ? t.targetSpeedKmh : t.lastSpeedKmh).toFixed(1)} km/h
-                </span>
-                <button onClick={() => void t.adjustBeltSpeed(+0.5)} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">+</button>
-                <button onClick={() => void t.stopBelt()} className="h-10 rounded-lg bg-rose-800 px-3 text-sm font-bold text-white">⏹</button>
-              </>
-            )}
-          </div>
-          <p className="mt-1 text-[10px] text-slate-600">Belt control is capped at 6.0 km/h from the game — use the remote beyond.</p>
+          {t.lastSpeedKmh <= 0 && t.targetSpeedKmh <= 0 ? (
+            <button
+              onClick={() => void t.startBelt()}
+              className="mt-2 w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white"
+            >
+              ▶ Start belt
+            </button>
+          ) : (
+            (() => {
+              const shown = sliderVal ?? (t.targetSpeedKmh > 0 ? t.targetSpeedKmh : t.lastSpeedKmh)
+              return (
+                <>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span className="font-mono text-sm font-bold text-emerald-300">→ {shown.toFixed(1)} km/h</span>
+                    <button onClick={() => void t.stopBelt()} className="rounded-lg bg-rose-800 px-4 py-1.5 text-sm font-bold text-white">
+                      ⏹ Stop
+                    </button>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button onClick={() => sendSpeed(Math.max(0.6, Math.round((shown - 0.1) * 10) / 10))} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">−</button>
+                    <input
+                      type="range" min={0.6} max={6} step={0.1} value={shown}
+                      onChange={(e) => sendSpeed(Number(e.target.value))}
+                      className="flex-1 accent-emerald-500"
+                    />
+                    <button onClick={() => sendSpeed(Math.min(6, Math.round((shown + 0.1) * 10) / 10))} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">+</button>
+                  </div>
+                </>
+              )
+            })()
+          )}
+          <p className="mt-1 text-[10px] text-slate-600">−/+ = 0.1 km/h · slider for big jumps · capped at 6.0 km/h (use the remote beyond).</p>
         </>
       )}
       {/* L'erreur RESTE affichée (sélectionnable) jusqu'au prochain essai : c'est notre diagnostic */}
