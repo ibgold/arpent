@@ -116,8 +116,9 @@ const VARIANTS: Variant[] = [
   },
 ]
 
-/** Bornes du contrôle depuis le jeu : c'est un jeu de MARCHE (la télécommande garde la main au-delà) */
-export const BELT_MIN_KMH = 0.6
+/** Bornes du contrôle depuis le jeu : c'est un jeu de MARCHE (la télécommande garde la main au-delà).
+ *  Min = plancher réel du tapis (Superun BA10 : 1,0 km/h). */
+export const BELT_MIN_KMH = 1.0
 export const BELT_MAX_KMH = 6.0
 
 const ALL_SERVICES = [0xffff, 0xfff0, 0xfba0, 0xff00, 0x1801, 0x1910]

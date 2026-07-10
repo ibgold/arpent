@@ -6,6 +6,7 @@ import { questLabel } from '../../core/balance/quests'
 import { catalogItem } from '../../core/balance/catalog'
 import { chestCapacity, roadFindDistance, useGameStore } from '../../core/state/store'
 import { walkManager } from '../../input/walkManager'
+import { BELT_MIN_KMH, BELT_MAX_KMH } from '../../input/TreadmillSource'
 import { gameEvents } from '../../game/bridge/events'
 import { formatDistance, useWalkSpeed } from '../components/StatusBar'
 import { isPipSupported, openPipWidget } from './pip'
@@ -311,9 +312,9 @@ function TreadmillPanel() {
                     </button>
                   </div>
                   <div className="mt-1.5 flex items-center gap-2">
-                    <button onClick={() => sendSpeed(Math.max(0.6, Math.round((shown - 0.1) * 10) / 10))} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">−</button>
+                    <button onClick={() => sendSpeed(Math.max(BELT_MIN_KMH, Math.round((shown - 0.1) * 10) / 10))} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">−</button>
                     <input
-                      type="range" min={0.6} max={6} step={0.1} value={shown}
+                      type="range" min={BELT_MIN_KMH} max={BELT_MAX_KMH} step={0.1} value={shown}
                       onChange={(e) => sendSpeed(Number(e.target.value))}
                       className="flex-1 accent-emerald-500"
                     />
