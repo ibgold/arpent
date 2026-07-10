@@ -338,6 +338,11 @@ export class TreadmillSource implements WalkDataSource {
     }
     await this.writeTo(this.writeChar, start, true)
     this.targetSpeedKmh = Math.max(this.targetSpeedKmh, BELT_MIN_KMH)
+    // Cale le démarrage sur le plancher réel (1 km/h) : consigne envoyée après le décompte du tapis
+    // (deux envois : pendant et après le 3-2-1, le second sécurise si le premier est ignoré)
+    const target = this.targetSpeedKmh
+    setTimeout(() => { if (this.status === 'active' && this.targetSpeedKmh === target) void this.setBeltSpeed(target) }, 1200)
+    setTimeout(() => { if (this.status === 'active' && this.targetSpeedKmh === target) void this.setBeltSpeed(target) }, 4500)
   }
 
   async stopBelt(): Promise<void> {

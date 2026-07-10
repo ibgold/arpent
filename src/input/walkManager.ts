@@ -67,11 +67,13 @@ class WalkManager {
     if (!this.paused) this.active.start()
   }
 
-  /** Met la marche en pause : plus aucun sample, quel que soit le mode */
+  /** Met la marche en pause : plus aucun sample, quel que soit le mode.
+   *  Mode tapis : arrête le BANDEAU mais garde la connexion Bluetooth (pas de re-appairage). */
   pause(): void {
     if (this.paused) return
     this.paused = true
-    this.active?.stop()
+    if (this.active === this.treadmill) void this.treadmill.stopBelt()
+    else this.active?.stop()
     this.currentSpeedKmh = 0
     gameEvents.emit('walk:speed', 0)
     gameEvents.emit('walk:paused', true)
@@ -80,7 +82,9 @@ class WalkManager {
   resume(): void {
     if (!this.paused) return
     this.paused = false
-    this.active?.start()
+    // Tapis : la connexion est restée ouverte ; le bandeau ne REDÉMARRE PAS tout seul (sécurité) —
+    // c'est le bouton « Start belt » qui relance.
+    if (this.active !== this.treadmill) this.active?.start()
     gameEvents.emit('walk:paused', false)
   }
 
