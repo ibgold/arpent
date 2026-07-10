@@ -26,7 +26,43 @@ interface Variant {
   pollCounterIndex: number
   /** Décode la vitesse (km/h) depuis la trame de notification */
   parseSpeed: (v: DataView) => number
+  /** Contrôle du tapis : démarrage/arrêt du bandeau, et gabarit de trame vitesse */
+  start: number[]
+  stopBelt: number[]
+  buildSpeed: (kmh: number, counter: number) => number[]
 }
+
+/** Checksum XOR des variantes 0x4d (octets 5 → longueur-3) — le compteur (octet 2) n'y entre pas */
+function xorChecksum(a: number[]): number {
+  let r = 0
+  for (let i = 5; i <= a.length - 3; i++) r ^= a[i]
+  return r
+}
+
+/** Checksum PitPat : XOR (octets 5 → longueur-3) puis XOR avec l'octet 1 */
+function pitpatChecksum(a: number[]): number {
+  let r = 0
+  const s = a.length < 7 ? 2 : 5
+  for (let i = s; i <= a.length - 3; i++) r ^= a[i]
+  r ^= a[1]
+  return r
+}
+
+/** Trame vitesse des variantes 0x4d : compteur en [2], vitesse ×100 BE en [10-11], XOR en [25] */
+function build4dSpeed(template: number[], kmh: number, counter: number): number[] {
+  const f = [...template]
+  f[2] = counter & 0xff
+  const raw = Math.round(kmh * 100)
+  f[10] = (raw >> 8) & 0xff
+  f[11] = raw & 0xff
+  f[25] = xorChecksum(f)
+  return f
+}
+
+const SUPERUN_SPEED = [0x4d, 0x00, 0x14, 0x17, 0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x04, 0x4c, 0x01, 0x00, 0x50, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0xb5, 0x7c, 0xdb, 0x43]
+const STANDARD_SPEED = [0x4d, 0x00, 0xc9, 0x17, 0x6a, 0x17, 0x02, 0x00, 0x06, 0x40, 0x04, 0x4c, 0x01, 0x00, 0x50, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x85, 0x11, 0xd8, 0x43]
+const START_4D = [0x4d, 0x00, 0x0c, 0x17, 0x6a, 0x17, 0x02, 0x00, 0x06, 0x40, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x85, 0x11, 0x2a, 0x43]
+const STOP_4D = [0x4d, 0x00, 0x48, 0x17, 0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x50, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x85, 0x11, 0xd6, 0x43]
 
 const VARIANTS: Variant[] = [
   {
@@ -39,6 +75,8 @@ const VARIANTS: Variant[] = [
     ],
     poll: [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: 2,
     parseSpeed: (v) => (((v.getUint8(9) << 8) & 0xff) + v.getUint8(10)) / 100,
+    start: START_4D, stopBelt: STOP_4D,
+    buildSpeed: (kmh, counter) => build4dSpeed(SUPERUN_SPEED, kmh, counter),
   },
   {
     id: 'standard',
@@ -49,6 +87,8 @@ const VARIANTS: Variant[] = [
     ],
     poll: [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: 2,
     parseSpeed: (v) => (((v.getUint8(9) << 8) & 0xff) + v.getUint8(10)) / 100,
+    start: START_4D, stopBelt: STOP_4D,
+    buildSpeed: (kmh, counter) => build4dSpeed(STANDARD_SPEED, kmh, counter),
   },
   {
     id: 'pitpat',
@@ -61,8 +101,24 @@ const VARIANTS: Variant[] = [
     ],
     poll: [0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: -1,
     parseSpeed: (v) => (((v.getUint8(3) << 8) | v.getUint8(4)) & 0xffff) / 1000,
+    start: [0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x93, 0x43],
+    stopBelt: [0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x8a, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x2e, 0x0c, 0xaa, 0x43],
+    buildSpeed: (kmh) => {
+      // Vitesse ×1000 BE en [6-7], inclinaison 0 en [9], checksum PitPat en [21]
+      const f = [0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x03, 0xe8, 0x01, 0x08, 0x64, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x7a, 0x67, 0x96, 0x43]
+      const raw = Math.round(kmh * 1000)
+      f[6] = (raw >> 8) & 0xff
+      f[7] = raw & 0xff
+      f[9] = 0
+      f[21] = pitpatChecksum(f)
+      return f
+    },
   },
 ]
+
+/** Bornes du contrôle depuis le jeu : c'est un jeu de MARCHE (la télécommande garde la main au-delà) */
+export const BELT_MIN_KMH = 0.6
+export const BELT_MAX_KMH = 6.0
 
 const ALL_SERVICES = [0xffff, 0xfff0, 0xfba0, 0xff00, 0x1801, 0x1910]
 
@@ -240,6 +296,52 @@ export class TreadmillSource implements WalkDataSource {
     if (this.status !== 'active') return
     this.status = 'lost'
     void this.attach() // reconnexion auto (on a déjà l'appareil)
+  }
+
+  // --- Contrôle du tapis depuis le jeu (⚠ agit sur le vrai bandeau) ---
+
+  get canControl(): boolean {
+    return this.status === 'active' && !!this.variant && !!this.writeChar
+  }
+
+  /** Vitesse cible affichée par l'UI (suit la vitesse réelle tant qu'on n'a pas ajusté) */
+  targetSpeedKmh = 0
+
+  async startBelt(): Promise<void> {
+    if (!this.canControl || !this.variant || !this.writeChar) return
+    const start = [...this.variant.start]
+    if (this.variant.pollCounterIndex >= 0) {
+      start[this.variant.pollCounterIndex] = this.pollCounter & 0xff
+      this.pollCounter = (this.pollCounter + 1) & 0xff
+    }
+    await this.writeTo(this.writeChar, start)
+    this.targetSpeedKmh = Math.max(this.targetSpeedKmh, BELT_MIN_KMH)
+  }
+
+  async stopBelt(): Promise<void> {
+    if (!this.canControl || !this.variant || !this.writeChar) return
+    const stop = [...this.variant.stopBelt]
+    if (this.variant.pollCounterIndex >= 0) {
+      stop[this.variant.pollCounterIndex] = this.pollCounter & 0xff
+      this.pollCounter = (this.pollCounter + 1) & 0xff
+    }
+    await this.writeTo(this.writeChar, stop)
+    this.targetSpeedKmh = 0
+  }
+
+  async setBeltSpeed(kmh: number): Promise<void> {
+    if (!this.canControl || !this.variant || !this.writeChar) return
+    const clamped = Math.min(BELT_MAX_KMH, Math.max(BELT_MIN_KMH, Math.round(kmh * 10) / 10))
+    this.targetSpeedKmh = clamped
+    const frame = this.variant.buildSpeed(clamped, this.pollCounter & 0xff)
+    if (this.variant.pollCounterIndex >= 0) this.pollCounter = (this.pollCounter + 1) & 0xff
+    await this.writeTo(this.writeChar, frame)
+  }
+
+  /** ± depuis l'UI/widget : part de la vitesse réelle courante si aucune cible n'est posée */
+  async adjustBeltSpeed(delta: number): Promise<void> {
+    const base = this.targetSpeedKmh > 0 ? this.targetSpeedKmh : this.lastSpeedKmh
+    await this.setBeltSpeed(base + delta)
   }
 
   private onNotify = (event: Event): void => {

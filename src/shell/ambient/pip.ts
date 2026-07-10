@@ -102,6 +102,9 @@ export async function openPipWidget(): Promise<Window | null> {
       walkManager.manual.setSpeed(walkManager.manual.getSpeed() + delta)
     } else if (s.settings.inputMode === 'simulation') {
       s.setSettings({ simSpeedKmh: Math.max(0, Math.min(12, s.settings.simSpeedKmh + delta)) })
+    } else if (s.settings.inputMode === 'treadmill') {
+      // Pilote le VRAI tapis (borné 0.6–6.0 km/h côté TreadmillSource)
+      void walkManager.treadmill.adjustBeltSpeed(delta)
     }
     // GPS / podomètre : la vitesse vient du monde réel, rien à ajuster
   }

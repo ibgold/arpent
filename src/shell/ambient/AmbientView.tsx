@@ -277,6 +277,27 @@ function TreadmillPanel() {
           <p className="mt-1 select-text font-mono text-slate-500">
             frames {t.notifCount}{t.lastFrameHex ? ` · ${t.lastFrameHex}` : ' · (no data yet — send me this)'}
           </p>
+          {/* Contrôle du tapis : ⚠ agit sur le vrai bandeau sous tes pieds */}
+          <div className="mt-2 flex items-center gap-2">
+            {t.lastSpeedKmh <= 0 && t.targetSpeedKmh <= 0 ? (
+              <button
+                onClick={() => void t.startBelt()}
+                className="flex-1 rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white"
+              >
+                ▶ Start belt
+              </button>
+            ) : (
+              <>
+                <button onClick={() => void t.adjustBeltSpeed(-0.5)} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">−</button>
+                <span className="flex-1 text-center font-mono text-sm text-emerald-300">
+                  → {(t.targetSpeedKmh > 0 ? t.targetSpeedKmh : t.lastSpeedKmh).toFixed(1)} km/h
+                </span>
+                <button onClick={() => void t.adjustBeltSpeed(+0.5)} className="h-10 w-12 rounded-lg bg-slate-800 text-lg">+</button>
+                <button onClick={() => void t.stopBelt()} className="h-10 rounded-lg bg-rose-800 px-3 text-sm font-bold text-white">⏹</button>
+              </>
+            )}
+          </div>
+          <p className="mt-1 text-[10px] text-slate-600">Belt control is capped at 6.0 km/h from the game — use the remote beyond.</p>
         </>
       )}
       {/* L'erreur RESTE affichée (sélectionnable) jusqu'au prochain essai : c'est notre diagnostic */}
