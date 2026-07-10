@@ -31,6 +31,7 @@ export interface GameEventMap {
     potionId?: string,
     challenge?: boolean,
     mode?: 'boss-rush' | 'colosseum',
+    overchargeSteps?: number,
   ) => void
 }
 

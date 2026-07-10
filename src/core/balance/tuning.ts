@@ -49,6 +49,11 @@ export const TUNABLE_GROUPS: TunableGroup[] = [
     items: [
       { key: 'energyRatePerKmh', label: 'Energy per km/h per s', min: 0.1, max: 3, step: 0.05 },
       { key: 'runStartCost', label: 'Run start cost ⚡', min: 50, max: 1000, step: 25 },
+      { key: 'energyCap', label: 'Energy cap (reservoir)', min: 300, max: 8000, step: 100 },
+      { key: 'energyOverflowGoldDivisor', label: 'Overflow → gold (÷)', min: 1, max: 50, step: 1 },
+      { key: 'overchargeCostPerStep', label: 'Overcharge ⚡ per step', min: 50, max: 1000, step: 25 },
+      { key: 'overchargeBonusPerStep', label: 'Overcharge bonus/step', min: 0.05, max: 0.5, step: 0.05 },
+      { key: 'overchargeMaxSteps', label: 'Overcharge max steps', min: 1, max: 10, step: 1 },
       { key: 'runDrainPerSec', label: 'Run drain ⚡/s', min: 0.2, max: 8, step: 0.1 },
       { key: 'runDrainPerRoom', label: 'Extra drain per room', min: 0, max: 2, step: 0.05 },
       { key: 'hybridEnergyMultiplier', label: 'Hybrid energy ×', min: 1, max: 3, step: 0.05 },

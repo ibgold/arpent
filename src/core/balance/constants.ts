@@ -14,6 +14,17 @@ export const BALANCE = {
   /** Cible : ~10 min de marche à 4 km/h ≈ 1200 énergie ≈ 1 run correcte */
   runStartCost: 250,
   runDrainPerSec: 1.5,
+  /** Plafond du réservoir d'énergie : au-delà on ne stocke plus (l'énergie devient une stamina de jeu,
+   *  pas un magot infini). L'énergie déjà au-dessus est conservée, mais n'augmente plus. */
+  energyCap: 1200,
+  /** Le surplus (énergie gagnée alors qu'on est au plafond) devient de l'or : rien n'est gâché.
+   *  Diviseur : X énergie de surplus = 1 or (15 = doux, pas un robinet). */
+  energyOverflowGoldDivisor: 15,
+  /** Surcharge : verser de l'énergie dans une run au départ pour la booster (or & butin).
+   *  Coût par cran, bonus par cran (or & chance de butin), nombre max de crans. */
+  overchargeCostPerStep: 250,
+  overchargeBonusPerStep: 0.2,
+  overchargeMaxSteps: 5,
   /** Drain additionnel par salle franchie (les runs profondes coûtent plus) */
   runDrainPerRoom: 0.15,
 

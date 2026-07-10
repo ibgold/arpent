@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ContractDef } from '../../core/balance/contracts'
 import { challengeDayKey, dailyChallengeMods } from '../../core/balance/challenge'
 import { POTIONS } from '../../core/balance/garden'
+import { BALANCE } from '../../core/balance/constants'
 import { useGameStore } from '../../core/state/store'
 import { gameEvents } from '../../game/bridge/events'
 
@@ -13,6 +14,8 @@ export function ContractsModal() {
   const [potion, setPotion] = useState<string | undefined>(undefined)
   const [challenge, setChallenge] = useState(false)
   const [mode, setMode] = useState<'expedition' | 'boss-rush' | 'colosseum'>('expedition')
+  const [overcharge, setOvercharge] = useState(0)
+  const energy = useGameStore((s) => s.energy)
   const potions = useGameStore((s) => s.garden.potions)
   const wonToday = useGameStore((s) => s.dailyChallenge.lastWonDay === challengeDayKey())
   const bossesDown = useGameStore((s) => s.progression.bossesDefeated.length)
@@ -25,6 +28,7 @@ export function ContractsModal() {
       setPotion(undefined)
       setChallenge(false)
       setMode('expedition')
+      setOvercharge(0)
     }
     gameEvents.on('hub:offer-contracts', onOffer)
     return () => void gameEvents.off('hub:offer-contracts', onOffer)
@@ -42,12 +46,15 @@ export function ContractsModal() {
   }
 
   const embark = () => {
-    gameEvents.emit('hub:embark', offer.regionId, [...accepted], potion, challenge, mode === 'expedition' ? undefined : mode)
+    gameEvents.emit('hub:embark', offer.regionId, [...accepted], potion, challenge, mode === 'expedition' ? undefined : mode, overcharge)
     setOffer(null)
   }
 
   const ownedPotions = POTIONS.filter((p) => (potions[p.id] ?? 0) > 0)
   const todayMods = dailyChallengeMods()
+  // Surcharge : crans d'énergie versables dans la run (au-delà du coût de base)
+  const maxOverSteps = Math.min(BALANCE.overchargeMaxSteps, Math.floor((energy - BALANCE.runStartCost) / BALANCE.overchargeCostPerStep))
+  const overBonusPct = Math.round(overcharge * BALANCE.overchargeBonusPerStep * 100)
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/80 p-4 font-mono">
@@ -141,6 +148,35 @@ export function ContractsModal() {
             </button>
           )}
         </div>
+        {/* Surcharge ⚡ : verser ton énergie en réserve dans la run pour la booster (or & butin) */}
+        {maxOverSteps > 0 && (
+          <div className="mt-3">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase text-emerald-300">⚡ Overcharge (spend banked energy)</span>
+              <span className="text-[11px] text-slate-500">⚡ {Math.floor(energy)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setOvercharge(Math.max(0, overcharge - 1))}
+                className="h-9 w-10 rounded-lg bg-slate-800 text-lg text-slate-200"
+              >−</button>
+              <div className="flex-1 rounded-lg bg-slate-950 py-2 text-center text-xs">
+                {overcharge === 0 ? (
+                  <span className="text-slate-500">no boost</span>
+                ) : (
+                  <span className="font-bold text-emerald-300">
+                    −{overcharge * BALANCE.overchargeCostPerStep} ⚡ → +{overBonusPct}% gold & loot
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => setOvercharge(Math.min(maxOverSteps, overcharge + 1))}
+                className="h-9 w-10 rounded-lg bg-slate-800 text-lg text-slate-200"
+              >+</button>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-600">Turn your energy reserve into a richer run — up to +{BALANCE.overchargeMaxSteps * BALANCE.overchargeBonusPerStep * 100}%.</p>
+          </div>
+        )}
         {/* Potions du jardin 🌱 : une par run, optionnelle */}
         {ownedPotions.length > 0 && (
           <div className="mt-3">

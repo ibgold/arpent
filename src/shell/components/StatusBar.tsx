@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../core/state/store'
+import { BALANCE } from '../../core/balance/constants'
 import { gameEvents } from '../../game/bridge/events'
 
 export function formatDistance(m: number): string {
@@ -39,8 +40,13 @@ export function StatusBar() {
         <span className="text-yellow-600">🪵{Math.floor(wood)}</span>
         <span className="text-stone-400">🪨{Math.floor(stone)}</span>
         <span className="text-violet-300">⚗{Math.floor(essence)}</span>
-        <span className="rounded bg-emerald-950 px-1.5 py-0.5 font-bold text-emerald-300 sm:px-2">
-          ⚡ {Math.floor(energy)}
+        <span
+          className={`rounded px-1.5 py-0.5 font-bold sm:px-2 ${
+            energy >= BALANCE.energyCap ? 'bg-amber-950 text-amber-300' : 'bg-emerald-950 text-emerald-300'
+          }`}
+          title={energy >= BALANCE.energyCap ? 'Reservoir full — walk now turns to gold. Spend energy on runs!' : `Reservoir: ${Math.floor(energy)}/${BALANCE.energyCap}`}
+        >
+          ⚡ {Math.floor(energy)}{energy >= BALANCE.energyCap ? ' FULL' : ''}
         </span>
       </div>
     </header>

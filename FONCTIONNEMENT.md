@@ -33,8 +33,11 @@ presque toutes sont réglables en jeu via le **Balance Lab** (§15). Dernière m
 lancement des expéditions (250 ⚡) et leur drain continu. Aucune notification, aucun rappel, aucune
 culpabilisation : le monde se rendort quand tu t'arrêtes, il se réveille quand tu marches. C'est tout.
 
-Gain : `0.5 ⚡/s × vitesse (km/h)`, multiplié par tous les bonus (§3). À 4 km/h : ~2 ⚡/s, soit
-~10 minutes de marche pour une run.
+Gain : `0.5 ⚡/s × vitesse (km/h)`, multiplié par tous les bonus (§3), soit ~1800 ⚡ par km. Le réservoir
+est **plafonné** (défaut 1200 ⚡ — une stamina de jeu, pas un magot infini) : au plafond, la marche
+convertit son énergie en **or** (rien n'est gâché, et ta marche reste tracée pour toujours dans le
+Journal §3). Deux usages : **lancer** une run (250 ⚡) et la **Surcharge** — verser ton énergie en
+réserve au départ pour +or & +butin (jusqu'à +100%). Tout est réglable dans le Balance Lab.
 
 ## 2. La marche : sources et capteurs
 

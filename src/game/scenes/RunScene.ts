@@ -77,6 +77,8 @@ export class RunScene extends Phaser.Scene {
   private mode: 'boss-rush' | 'colosseum' | undefined
   /** Cages apparues cette run (cap : BALANCE.cageMaxPerRun) */
   private cagesSpawned = 0
+  /** Surcharge : bonus (fraction) d'or & de chance de butin payé en énergie au départ */
+  private overcharge = 0
   private depth = 1
   /** Potion du jardin : multiplicateur d'or (Fortune) */
   private potionGoldMult = 1
@@ -148,6 +150,7 @@ export class RunScene extends Phaser.Scene {
     this.championRoom = Phaser.Math.Between(1, BALANCE.roomsPerRegion - 1)
     this.championPending = this.mode !== 'boss-rush'
     this.cagesSpawned = 0
+    this.overcharge = run.overcharge ?? 0
     this.gold = run.gold
     this.wood = run.wood
     this.stone = run.stone
@@ -905,6 +908,7 @@ export class RunScene extends Phaser.Scene {
       this.potionGoldMult *
       BALANCE.globalGoldMult *
       this.challengeMults.gold *
+      (1 + this.overcharge) *
       Math.pow(BALANCE.depthGoldMult, this.depth - 1)
     this.gold += Math.round(Phaser.Math.Between(...BALANCE.goldPerKill) * goldMult * (isElite ? BALANCE.eliteGoldMult : 1))
     this.juice.burst(x, y, 0xf87171, 12, 120)
@@ -936,11 +940,11 @@ export class RunScene extends Phaser.Scene {
       this.dropCatalogAt(x, y)
       // Les bonus de loot offrent une chance d'un 2ᵉ drop du champion
       const bonusChance =
-        this.skills.lootChanceBonus + (this.boons.has('lucky-charm') ? 0.18 : 0) + this.roomLootBonus + this.contracts.lootChanceBonus
+        this.skills.lootChanceBonus + (this.boons.has('lucky-charm') ? 0.18 : 0) + this.roomLootBonus + this.contracts.lootChanceBonus + this.overcharge
       if (Math.random() < bonusChance) this.dropCatalogAt(x + 24, y)
     } else if (isElite) {
       const eliteChance =
-        this.skills.lootChanceBonus + (this.boons.has('lucky-charm') ? 0.18 : 0) + this.roomLootBonus + this.contracts.lootChanceBonus
+        this.skills.lootChanceBonus + (this.boons.has('lucky-charm') ? 0.18 : 0) + this.roomLootBonus + this.contracts.lootChanceBonus + this.overcharge
       if (Math.random() < eliteChance) this.dropCatalogAt(x, y)
     }
     // Graines du jardin 🌱 : élites (chance réglable), champion garanti

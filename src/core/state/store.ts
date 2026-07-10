@@ -54,6 +54,7 @@ interface GameActions {
     potionId?: string,
     challenge?: boolean,
     mode?: 'boss-rush' | 'colosseum',
+    overchargeSteps?: number,
   ) => boolean
   /** Colosseum : enregistre la meilleure vague atteinte */
   recordColosseumWave: (wave: number) => void
@@ -348,11 +349,16 @@ export const useGameStore = create<Store>((set, get) => ({
           return grownM >= def.needM ? { ...p, grownM: def.needM, matureDay: today, wilted: false } : { ...p, grownM }
         }),
       }
+      // Plafond du réservoir : on ne stocke que jusqu'au cap ; le surplus devient de l'or (aucun pas gâché).
+      // L'énergie déjà au-dessus du cap (ex. avant l'ajout du plafond) est conservée telle quelle.
+      const room = Math.max(0, BALANCE.energyCap - s.energy)
+      const toEnergy = Math.min(gain, room)
+      const overflowGold = Math.floor((gain - toEnergy) / BALANCE.energyOverflowGoldDivisor)
       return {
-        energy: s.energy + gain,
+        energy: s.energy + toEnergy,
         totalEnergyEarned: s.totalEnergyEarned + gain,
         totalDistanceM: s.totalDistanceM + distanceDeltaM,
-        gold: s.gold + production.gold + goalGold,
+        gold: s.gold + production.gold + goalGold + overflowGold,
         wood: s.wood + production.wood,
         stone: s.stone + production.stone,
         essence: s.essence + willowEssence,
@@ -399,9 +405,14 @@ export const useGameStore = create<Store>((set, get) => ({
     return drained
   },
 
-  startRun: (regionId, contractIds = [], depth, potionId, challenge, mode) => {
+  startRun: (regionId, contractIds = [], depth, potionId, challenge, mode, overchargeSteps = 0) => {
     const s = get()
     if (s.run || s.energy < BALANCE.runStartCost) return false
+    // Surcharge : crans d'énergie versés dans la run (limités par l'énergie dispo au-delà du coût de base)
+    const affordableSteps = Math.floor((s.energy - BALANCE.runStartCost) / BALANCE.overchargeCostPerStep)
+    const steps = Math.max(0, Math.min(overchargeSteps, BALANCE.overchargeMaxSteps, affordableSteps))
+    const totalCost = BALANCE.runStartCost + steps * BALANCE.overchargeCostPerStep
+    const overcharge = steps * BALANCE.overchargeBonusPerStep
     // Potion du jardin : consommée au départ, effet pour toute la run
     const hasPotion = !!potionId && (s.garden.potions[potionId] ?? 0) > 0
     const potions = hasPotion
@@ -409,7 +420,7 @@ export const useGameStore = create<Store>((set, get) => ({
       : s.garden.potions
     const stats = heroStats(s)
     set({
-      energy: s.energy - BALANCE.runStartCost,
+      energy: s.energy - totalCost,
       garden: { ...s.garden, potions },
       feastPending: undefined,
       run: {
@@ -418,9 +429,10 @@ export const useGameStore = create<Store>((set, get) => ({
         challenge: !mode && challenge && !challengeWonToday(s) ? true : undefined,
         feast: s.feastPending ? true : undefined,
         mode,
+        overcharge: overcharge > 0 ? overcharge : undefined,
         depth: Math.max(1, Math.min(depth ?? s.progression.depth, s.progression.depth)),
         room: 1,
-        energyAtStart: s.energy - BALANCE.runStartCost,
+        energyAtStart: s.energy - totalCost,
         currentHp: stats.maxHp,
         contracts: contractIds,
         runXp: 0,

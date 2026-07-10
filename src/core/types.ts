@@ -92,6 +92,8 @@ export interface RunState {
   feast?: boolean
   /** Mode alternatif : boss-rush (9 boss enchaînés) ou colosseum (vagues infinies) */
   mode?: 'boss-rush' | 'colosseum'
+  /** Surcharge : bonus (fraction) d'or & de butin payé en énergie au départ */
+  overcharge?: number
   /** Niveau de run façon Archero : rempli par les orbes d'XP, chaque niveau = choix de capacité */
   runXp: number
   runLevel: number

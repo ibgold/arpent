@@ -128,8 +128,8 @@ export class HubScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.())
 
     const onRequestRun = () => this.tryStartRun()
-    const onEmbark = (regionId: string, contractIds: string[], potionId?: string, challenge?: boolean, mode?: 'boss-rush' | 'colosseum') =>
-      this.embark(regionId, contractIds, potionId, challenge, mode)
+    const onEmbark = (regionId: string, contractIds: string[], potionId?: string, challenge?: boolean, mode?: 'boss-rush' | 'colosseum', overcharge?: number) =>
+      this.embark(regionId, contractIds, potionId, challenge, mode, overcharge)
     gameEvents.on('hub:request-run', onRequestRun)
     gameEvents.on('hub:embark', onEmbark)
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -335,8 +335,8 @@ export class HubScene extends Phaser.Scene {
     gameEvents.emit('hub:offer-contracts', region.id, rollContractOffer(contractCount))
   }
 
-  private embark(regionId: string, contractIds: string[], potionId?: string, challenge?: boolean, mode?: 'boss-rush' | 'colosseum'): void {
-    if (useGameStore.getState().startRun(regionId, contractIds, this.selectedDepth, potionId, challenge, mode)) {
+  private embark(regionId: string, contractIds: string[], potionId?: string, challenge?: boolean, mode?: 'boss-rush' | 'colosseum', overcharge?: number): void {
+    if (useGameStore.getState().startRun(regionId, contractIds, this.selectedDepth, potionId, challenge, mode, overcharge)) {
       playSfx('levelUp')
       this.cameras.main.flash(300, 129, 140, 248)
       this.time.delayedCall(250, () => this.scene.start('Run'))
