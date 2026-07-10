@@ -688,6 +688,14 @@ export class RunScene extends Phaser.Scene {
 
   // --- Combat façon Archero : tir auto à l'arrêt, se déplacer = esquiver ---
 
+  /** On tire au rythme où l'on marche : marche rapide → cooldown raccourci, arrêt → cooldown allongé (jamais nul). */
+  private walkPaceCooldownMult(): number {
+    const ref = BALANCE.combatPaceRefKmh
+    if (ref <= 0) return 1
+    const frac = Math.min(BALANCE.combatPaceCeil, Math.max(BALANCE.combatPaceFloor, this.walkSpeedKmh / ref))
+    return 1 / frac
+  }
+
   private tryAutoShoot(movingPenalty = 1): void {
     const now = this.time.now
     if (now < this.nextAttackAt) return
@@ -716,7 +724,8 @@ export class RunScene extends Phaser.Scene {
         this.weapon.cooldownMult *
         this.skills.attackCooldownMult *
         this.boonMult('frenzy', 0.75) *
-        movingPenalty
+        movingPenalty *
+        this.walkPaceCooldownMult()
 
     const dir = new Phaser.Math.Vector2(nearest.x - this.player.x, nearest.y - this.player.y).normalize()
     const angle = Math.atan2(dir.y, dir.x)

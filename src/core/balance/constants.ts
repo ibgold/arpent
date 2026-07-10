@@ -33,6 +33,14 @@ export const BALANCE = {
   hybridDamageBonusPerKmh: 0.06, // +6% dégâts par km/h de marche en direct
   hybridEnergyMultiplier: 1.25,  // l'énergie gagnée en run est boostée
 
+  // --- Cadence de tir rythmée par la marche réelle (le cœur : on tire au rythme où l'on marche) ---
+  /** Vitesse de marche (km/h) qui donne la cadence de tir NORMALE ; en dessous on tire plus lentement, au-dessus plus vite */
+  combatPaceRefKmh: 2.0,
+  /** Plancher : fraction de cadence minimale à l'arrêt (0.4 = 40% de la cadence — jamais sans défense) */
+  combatPaceFloor: 0.4,
+  /** Plafond : bonus de cadence max en marchant vite (1.6 = jusqu'à +60% de cadence) */
+  combatPaceCeil: 1.6,
+
   // --- Héros ---
   heroBaseHp: 100,
   heroHpPerLevel: 14,   // rééquilibrage : la croissance suit mieux le scaling des régions
