@@ -277,6 +277,9 @@ function TreadmillPanel() {
           <p className="mt-1 select-text font-mono text-slate-500">
             frames {t.notifCount}{t.lastFrameHex ? ` · ${t.lastFrameHex}` : ' · (no data yet — send me this)'}
           </p>
+          {t.lastSentHex && (
+            <p className="mt-0.5 select-text font-mono text-sky-400/70">sent: {t.lastSentHex}</p>
+          )}
           {/* Contrôle du tapis : ⚠ agit sur le vrai bandeau sous tes pieds */}
           <div className="mt-2 flex items-center gap-2">
             {t.lastSpeedKmh <= 0 && t.targetSpeedKmh <= 0 ? (

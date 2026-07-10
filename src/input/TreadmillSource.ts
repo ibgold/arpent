@@ -141,6 +141,8 @@ export class TreadmillSource implements WalkDataSource {
   treadmillDistanceM = 0
   notifCount = 0
   lastFrameHex = ''
+  /** Dernière commande de contrôle réellement acceptée par le tapis (hex) */
+  lastSentHex = ''
   lastError = ''
   foundServices = ''
 
@@ -282,12 +284,31 @@ export class TreadmillSource implements WalkDataSource {
     await this.writeTo(this.writeChar, bytes)
   }
 
-  private async writeTo(char: BluetoothRemoteGATTCharacteristic, bytes: number[]): Promise<void> {
-    const data = new Uint8Array(bytes)
-    try {
-      if (typeof char.writeValueWithoutResponse === 'function') await char.writeValueWithoutResponse(data)
-      else await char.writeValue(data)
-    } catch { /* on retentera au prochain poll */ }
+  /** File d'attente : UNE écriture GATT à la fois, sinon Chrome rejette la seconde
+   *  (« GATT operation already in progress ») — c'est ce qui avalait les commandes. */
+  private writeQueue: Promise<void> = Promise.resolve()
+
+  private writeTo(char: BluetoothRemoteGATTCharacteristic, bytes: number[], critical = false): Promise<void> {
+    const run = async () => {
+      const data = new Uint8Array(bytes)
+      try {
+        // Les commandes critiques (start/stop/vitesse) partent AVEC accusé de réception
+        if (!critical && typeof char.writeValueWithoutResponse === 'function') await char.writeValueWithoutResponse(data)
+        else await char.writeValue(data)
+        if (critical) {
+          this.lastSentHex = bytes.map((b) => b.toString(16).padStart(2, '0')).join(' ')
+          this.lastError = ''
+        }
+      } catch (err) {
+        if (critical) {
+          const e = err as DOMException
+          this.lastError = `Commande refusée : ${e?.message ?? String(err)}`
+        }
+        // poll : on retentera au prochain tick
+      }
+    }
+    this.writeQueue = this.writeQueue.then(run, run)
+    return this.writeQueue
   }
 
   private onDisconnect = (): void => {
@@ -314,7 +335,7 @@ export class TreadmillSource implements WalkDataSource {
       start[this.variant.pollCounterIndex] = this.pollCounter & 0xff
       this.pollCounter = (this.pollCounter + 1) & 0xff
     }
-    await this.writeTo(this.writeChar, start)
+    await this.writeTo(this.writeChar, start, true)
     this.targetSpeedKmh = Math.max(this.targetSpeedKmh, BELT_MIN_KMH)
   }
 
@@ -325,7 +346,7 @@ export class TreadmillSource implements WalkDataSource {
       stop[this.variant.pollCounterIndex] = this.pollCounter & 0xff
       this.pollCounter = (this.pollCounter + 1) & 0xff
     }
-    await this.writeTo(this.writeChar, stop)
+    await this.writeTo(this.writeChar, stop, true)
     this.targetSpeedKmh = 0
   }
 
@@ -335,7 +356,7 @@ export class TreadmillSource implements WalkDataSource {
     this.targetSpeedKmh = clamped
     const frame = this.variant.buildSpeed(clamped, this.pollCounter & 0xff)
     if (this.variant.pollCounterIndex >= 0) this.pollCounter = (this.pollCounter + 1) & 0xff
-    await this.writeTo(this.writeChar, frame)
+    await this.writeTo(this.writeChar, frame, true)
   }
 
   /** ± depuis l'UI/widget : part de la vitesse réelle courante si aucune cible n'est posée */
