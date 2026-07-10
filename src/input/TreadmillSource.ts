@@ -1,20 +1,70 @@
 import type { WalkDataSource, WalkSampleCallback } from './WalkDataSource'
 
-// Capteur réel n°3 — LE MEILLEUR : le tapis de marche lui-même, lu en direct par Bluetooth.
-// API Web Bluetooth (Chrome/Edge sur Windows/Android ; jamais iOS/Firefox). HTTPS + geste requis.
+// Capteur réel n°3 — le tapis lui-même, lu en direct par Bluetooth (Web Bluetooth).
+// Chrome/Edge sur Windows/Android uniquement. HTTPS + geste utilisateur requis.
 //
-// Deux protocoles supportés, détectés automatiquement après connexion :
-// 1. PitPat / Superun BA10 (propriétaire, rétro-conçu — merci azmke/pitpat-treadmill-control) :
-//    caractéristiques notify 0xff02 / write 0xff01 (service ff00 ou fff0 selon firmware)
-//    trame (≥31 o) : vitesse = octets 3-4 (÷1000 → km/h), distance = 7-10, pas = 14-17
-//    heartbeat après chaque notif : 4d 00 <cpt> 05 6a 05 fd f8 43
-// 2. FTMS standard (service 0x1826, Treadmill Data 0x2acd) : vitesse uint16 ×0.01 km/h à l'offset 2.
+// Familles DeerRun / Superun / PitPat (marque blanche, ex. Superun BA10). Protocoles rétro-conçus
+// d'après qdomyos-zwift (cagnulein/qdomyos-zwift, deerruntreadmill.cpp). Trois variantes, détectées
+// par l'UUID de service présent. Point crucial : il faut envoyer la séquence d'init IMMÉDIATEMENT
+// après l'abonnement, sinon le tapis raccroche (il attend l'init pour commencer à émettre).
 
-const CANDIDATE_SERVICES = [0xff00, 0xfff0, 0xffe0, 0x1826]
-const PITPAT_NOTIFY = 0xff02
-const PITPAT_WRITE = 0xff01
-const FTMS_SERVICE = 0x1826
-const FTMS_TREADMILL_DATA = 0x2acd
+type VariantId = 'superun' | 'standard' | 'pitpat'
+
+interface Variant {
+  id: VariantId
+  service: number
+  write: number
+  notify: number
+  /** PitPat : déverrouillage à écrire sur un service séparé, sinon la connexion est refusée */
+  unlockService?: number
+  unlockChar?: number
+  unlock?: number[]
+  /** Commandes à écrire sur la caractéristique d'écriture, dans l'ordre, juste après l'abonnement */
+  init: number[][]
+  /** Battement de cœur périodique ; l'octet à `pollCounterIndex` (si ≥0) s'incrémente */
+  poll: number[]
+  pollCounterIndex: number
+  /** Décode la vitesse (km/h) depuis la trame de notification */
+  parseSpeed: (v: DataView) => number
+}
+
+const VARIANTS: Variant[] = [
+  {
+    id: 'superun',
+    service: 0xffff, write: 0xff01, notify: 0xff02,
+    init: [
+      [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43],
+      [0x4d, 0x00, 0x01, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43],
+      [0x4d, 0x00, 0x02, 0x17, 0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x03, 0xe8, 0x05, 0x00, 0x50, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0xb5, 0x7c, 0x7c, 0x43],
+    ],
+    poll: [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: 2,
+    parseSpeed: (v) => (((v.getUint8(9) << 8) & 0xff) + v.getUint8(10)) / 100,
+  },
+  {
+    id: 'standard',
+    service: 0xfff0, write: 0xfff1, notify: 0xfff2,
+    init: [
+      [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43],
+      [0x4d, 0x00, 0x0c, 0x17, 0x6a, 0x17, 0x02, 0x00, 0x06, 0x40, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x85, 0x11, 0x2a, 0x43],
+    ],
+    poll: [0x4d, 0x00, 0x00, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: 2,
+    parseSpeed: (v) => (((v.getUint8(9) << 8) & 0xff) + v.getUint8(10)) / 100,
+  },
+  {
+    id: 'pitpat',
+    service: 0xfba0, write: 0xfba1, notify: 0xfba2,
+    unlockService: 0x1801, unlockChar: 0x2b2a, unlock: [0x6b, 0x05, 0x9d, 0x98, 0x43],
+    init: [
+      [0x6a, 0x05, 0xfd, 0xf8, 0x43],
+      [0x6a, 0x05, 0xd7, 0xd2, 0x43],
+      [0x6a, 0x17, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x81, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x93, 0x43],
+    ],
+    poll: [0x6a, 0x05, 0xfd, 0xf8, 0x43], pollCounterIndex: -1,
+    parseSpeed: (v) => (((v.getUint8(3) << 8) | v.getUint8(4)) & 0xffff) / 1000,
+  },
+]
+
+const ALL_SERVICES = [0xffff, 0xfff0, 0xfba0, 0xff00, 0x1801, 0x1910]
 
 export type TreadmillStatus = 'idle' | 'connecting' | 'active' | 'denied' | 'unavailable' | 'lost'
 
@@ -23,17 +73,19 @@ export class TreadmillSource implements WalkDataSource {
   private device: BluetoothDevice | undefined
   private writeChar: BluetoothRemoteGATTCharacteristic | undefined
   private notifyChar: BluetoothRemoteGATTCharacteristic | undefined
-  private protocol: 'pitpat' | 'ftms' | undefined
-  private hbCounter = 0
+  private variant: Variant | undefined
+  private pollTimer: ReturnType<typeof setInterval> | undefined
+  private pollCounter = 0
   private lastAt = 0
   status: TreadmillStatus = 'idle'
-  /** Diagnostics affichés dans l'onglet Walk (l'erreur RESTE affichée jusqu'au prochain essai) */
+  /** Diagnostics affichés dans l'onglet Walk */
   deviceName = ''
+  variantName = ''
   lastSpeedKmh = 0
-  treadmillSteps = 0
   treadmillDistanceM = 0
+  notifCount = 0
+  lastFrameHex = ''
   lastError = ''
-  /** Services GATT découverts au dernier essai (debug : dit quel protocole parle le tapis) */
   foundServices = ''
 
   onSample(cb: WalkSampleCallback): void {
@@ -44,7 +96,6 @@ export class TreadmillSource implements WalkDataSource {
     return typeof navigator !== 'undefined' && !!navigator.bluetooth
   }
 
-  /** Appelé par le walkManager au changement de mode : ne se connecte PAS (le pairing exige un geste utilisateur). */
   start(): void {
     if (!this.supported) {
       this.status = 'unavailable'
@@ -54,6 +105,8 @@ export class TreadmillSource implements WalkDataSource {
   }
 
   stop(): void {
+    if (this.pollTimer) clearInterval(this.pollTimer)
+    this.pollTimer = undefined
     try {
       this.notifyChar?.removeEventListener('characteristicvaluechanged', this.onNotify)
       this.device?.removeEventListener('gattserverdisconnected', this.onDisconnect)
@@ -62,7 +115,7 @@ export class TreadmillSource implements WalkDataSource {
     this.device = undefined
     this.writeChar = undefined
     this.notifyChar = undefined
-    this.protocol = undefined
+    this.variant = undefined
     this.status = 'idle'
   }
 
@@ -79,7 +132,7 @@ export class TreadmillSource implements WalkDataSource {
       this.foundServices = ''
       const device = await navigator.bluetooth.requestDevice({
         acceptAllDevices: true,
-        optionalServices: CANDIDATE_SERVICES,
+        optionalServices: ALL_SERVICES,
       })
       this.device = device
       this.deviceName = device.name ?? 'tapis'
@@ -87,132 +140,126 @@ export class TreadmillSource implements WalkDataSource {
       await this.attach()
     } catch (err) {
       const e = err as DOMException
-      if (e?.name === 'NotFoundError') {
-        // L'utilisateur a fermé le sélecteur sans choisir : pas une erreur
-        this.status = 'idle'
-      } else {
-        this.status = 'denied'
-        this.lastError = `${e?.name ?? 'Erreur'}: ${e?.message ?? String(err)}`
-      }
+      if (e?.name === 'NotFoundError') this.status = 'idle' // sélecteur fermé sans choisir
+      else { this.status = 'denied'; this.lastError = `${e?.name ?? 'Erreur'}: ${e?.message ?? String(err)}` }
     }
   }
 
-  /** Connexion GATT + abonnement, avec retries : ces tapis raccrochent si on est trop lent,
-   *  et un 2ᵉ essai immédiat passe très souvent là où le 1ᵉʳ échoue (particularité Windows/BLE). */
   private async attach(): Promise<void> {
     const device = this.device
     if (!device) return
     let lastErr: unknown
-    for (let attempt = 1; attempt <= 4; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         this.status = 'connecting'
         const server = await device.gatt!.connect()
-        await this.discover(server)
+        await this.setup(server)
         this.status = 'active'
         this.lastError = ''
         this.lastAt = 0
-        if (this.protocol === 'pitpat') void this.sendHeartbeat() // amorce le flux
         return
       } catch (err) {
         lastErr = err
-        // Le tapis a raccroché en cours de route : petite pause puis on retente
         try { device.gatt?.disconnect() } catch { /* ignore */ }
-        await new Promise((r) => setTimeout(r, 350 * attempt))
+        await new Promise((r) => setTimeout(r, 300 * attempt))
       }
     }
     const e = lastErr as DOMException
     this.status = 'denied'
-    this.lastError = `${e?.name ?? 'Erreur'}: ${e?.message ?? String(lastErr)} (4 essais)`
+    this.lastError = `${e?.name ?? 'Erreur'}: ${e?.message ?? String(lastErr)}`
   }
 
-  /** Va droit aux services connus (rapide) — l'énumération complète ne sert qu'au diagnostic final */
-  private async discover(server: BluetoothRemoteGATTServer): Promise<void> {
-    this.protocol = undefined
-    this.notifyChar = undefined
-    this.writeChar = undefined
-    // 1. Protocole PitPat : caractéristiques ff02/ff01 sous l'un des services candidats
-    for (const uuid of [0xff00, 0xfff0, 0xffe0]) {
+  private async setup(server: BluetoothRemoteGATTServer): Promise<void> {
+    // Détection de variante : la première dont le service répond gagne
+    this.variant = undefined
+    for (const v of VARIANTS) {
       try {
-        const service = await server.getPrimaryService(uuid)
-        this.notifyChar = await service.getCharacteristic(PITPAT_NOTIFY)
-        this.writeChar = await service.getCharacteristic(PITPAT_WRITE)
-        this.protocol = 'pitpat'
+        const service = await server.getPrimaryService(v.service)
+        this.writeChar = await service.getCharacteristic(v.write)
+        this.notifyChar = await service.getCharacteristic(v.notify)
+        this.variant = v
         break
-      } catch { /* pas ce service : suivant */ }
+      } catch { /* pas cette variante */ }
     }
-    // 2. Fallback : le standard FTMS
-    if (!this.protocol) {
-      try {
-        const service = await server.getPrimaryService(FTMS_SERVICE)
-        this.notifyChar = await service.getCharacteristic(FTMS_TREADMILL_DATA)
-        this.protocol = 'ftms'
-      } catch { /* pas de FTMS non plus */ }
-    }
-    if (!this.protocol || !this.notifyChar) {
-      // Diagnostic : on liste ce que le tapis expose (peut échouer si déjà déconnecté)
+    if (!this.variant || !this.notifyChar || !this.writeChar) {
       try {
         const services = await server.getPrimaryServices()
         this.foundServices = services.map((s) => s.uuid.slice(4, 8)).join(', ') || 'aucun'
       } catch { this.foundServices = 'illisibles (déconnecté trop vite)' }
-      throw new DOMException(`Protocole inconnu — services vus : ${this.foundServices}. Envoie-moi cette ligne !`, 'NotSupportedError')
+      throw new DOMException(`Aucune variante connue — services : ${this.foundServices}. Envoie-moi cette ligne !`, 'NotSupportedError')
     }
-    // S'abonner IMMÉDIATEMENT : c'est ce qui apaise le watchdog du tapis
+    this.variantName = `${this.variant.id} / ${this.variant.service.toString(16)}`
+
+    // Abonnement d'abord (calme le chien de garde), puis init IMMÉDIATE
     await this.notifyChar.startNotifications()
     this.notifyChar.removeEventListener('characteristicvaluechanged', this.onNotify)
     this.notifyChar.addEventListener('characteristicvaluechanged', this.onNotify)
+
+    // PitPat : déverrouillage sur son service séparé, glissé après le 1ᵉʳ init
+    let unlockChar: BluetoothRemoteGATTCharacteristic | undefined
+    if (this.variant.unlock && this.variant.unlockService && this.variant.unlockChar) {
+      try {
+        const us = await server.getPrimaryService(this.variant.unlockService)
+        unlockChar = await us.getCharacteristic(this.variant.unlockChar)
+      } catch { /* pas de service de déverrouillage : on tente sans */ }
+    }
+
+    for (let i = 0; i < this.variant.init.length; i++) {
+      await this.writeTo(this.writeChar, this.variant.init[i])
+      if (i === 0 && unlockChar && this.variant.unlock) await this.writeTo(unlockChar, this.variant.unlock)
+    }
+
+    // Poll périodique : garde le flux ouvert même si le tapis est à l'arrêt
+    this.pollCounter = this.variant.init.length
+    if (this.pollTimer) clearInterval(this.pollTimer)
+    this.pollTimer = setInterval(() => void this.sendPoll(), 800)
+  }
+
+  private async sendPoll(): Promise<void> {
+    const v = this.variant
+    if (!v || !this.writeChar) return
+    const bytes = [...v.poll]
+    if (v.pollCounterIndex >= 0) {
+      bytes[v.pollCounterIndex] = this.pollCounter & 0xff
+      this.pollCounter = (this.pollCounter + 1) & 0xff
+    }
+    await this.writeTo(this.writeChar, bytes)
+  }
+
+  private async writeTo(char: BluetoothRemoteGATTCharacteristic, bytes: number[]): Promise<void> {
+    const data = new Uint8Array(bytes)
+    try {
+      if (typeof char.writeValueWithoutResponse === 'function') await char.writeValueWithoutResponse(data)
+      else await char.writeValue(data)
+    } catch { /* on retentera au prochain poll */ }
   }
 
   private onDisconnect = (): void => {
     this.lastSpeedKmh = 0
+    if (this.pollTimer) { clearInterval(this.pollTimer); this.pollTimer = undefined }
     if (this.status !== 'active') return
-    // Coupure en cours d'usage : on retente tout seul (pas de geste requis, on a déjà l'appareil)
     this.status = 'lost'
-    void this.attach()
+    void this.attach() // reconnexion auto (on a déjà l'appareil)
   }
 
   private onNotify = (event: Event): void => {
     const dv = (event.target as BluetoothRemoteGATTCharacteristic).value
-    if (!dv) return
-    if (this.protocol === 'ftms') return this.parseFtms(dv)
-    this.parsePitpat(dv)
-  }
-
-  private parsePitpat(dv: DataView): void {
-    if (dv.byteLength < 31) return
+    if (!dv || !this.variant) return
+    this.notifCount += 1
+    // Filet de sécurité : les 1ers octets bruts, pour recaler le décodage si besoin
     const p = new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength)
-    const speedKmh = (((p[3] << 8) | p[4]) & 0xffff) / 1000
-    this.treadmillDistanceM = ((p[7] << 24) | (p[8] << 16) | (p[9] << 8) | p[10]) >>> 0
-    this.treadmillSteps = ((p[14] << 24) | (p[15] << 16) | (p[16] << 8) | p[17]) >>> 0
-    this.emitSample(speedKmh)
-    void this.sendHeartbeat() // garde le flux ouvert
-  }
-
-  private parseFtms(dv: DataView): void {
-    if (dv.byteLength < 4) return
-    // Treadmill Data : flags uint16 LE, puis Instantaneous Speed uint16 LE en 0.01 km/h
-    const speedKmh = dv.getUint16(2, true) / 100
-    this.emitSample(speedKmh)
-  }
-
-  private emitSample(speedKmh: number): void {
+    this.lastFrameHex = Array.from(p.slice(0, 16)).map((b) => b.toString(16).padStart(2, '0')).join(' ')
+    if (dv.byteLength < 12) return
+    const speedKmh = this.variant.parseSpeed(dv)
+    if (!Number.isFinite(speedKmh) || speedKmh < 0 || speedKmh > 25) return
     this.lastSpeedKmh = speedKmh
     const now = performance.now()
     const dtS = this.lastAt ? (now - this.lastAt) / 1000 : 0
     this.lastAt = now
-    // Distance dérivée de vitesse × temps : robuste et indépendant de l'échelle du champ distance
     if (speedKmh > 0 && dtS > 0 && dtS < 10) {
-      this.cb?.({ timestamp: Date.now(), distanceDeltaM: (speedKmh / 3.6) * dtS, speedKmh })
+      const d = (speedKmh / 3.6) * dtS
+      this.treadmillDistanceM += d
+      this.cb?.({ timestamp: Date.now(), distanceDeltaM: d, speedKmh })
     }
-  }
-
-  private async sendHeartbeat(): Promise<void> {
-    if (!this.writeChar) return
-    const hb = new Uint8Array([0x4d, 0x00, this.hbCounter & 0xff, 0x05, 0x6a, 0x05, 0xfd, 0xf8, 0x43])
-    this.hbCounter = (this.hbCounter + 1) & 0xff
-    const char = this.writeChar
-    try {
-      if (typeof char.writeValueWithoutResponse === 'function') await char.writeValueWithoutResponse(hb)
-      else await char.writeValue(hb)
-    } catch { /* la prochaine notif renverra un heartbeat */ }
   }
 }

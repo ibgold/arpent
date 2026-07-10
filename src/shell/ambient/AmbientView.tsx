@@ -270,15 +270,17 @@ function TreadmillPanel() {
     <div className="mb-3 rounded-lg bg-slate-950 p-3 text-xs">
       <p className="font-bold text-slate-200">{label}</p>
       {t.status === 'active' && (
-        <p className="mt-1 font-mono text-emerald-300/80">
-          {t.lastSpeedKmh.toFixed(1)} km/h · {t.treadmillSteps} steps · {(t.treadmillDistanceM / 1000).toFixed(2)} km
-        </p>
+        <>
+          <p className="mt-1 font-mono text-emerald-300/80">
+            {t.lastSpeedKmh.toFixed(1)} km/h · {(t.treadmillDistanceM / 1000).toFixed(2)} km · {t.variantName}
+          </p>
+          <p className="mt-1 select-text font-mono text-slate-500">
+            frames {t.notifCount}{t.lastFrameHex ? ` · ${t.lastFrameHex}` : ' · (no data yet — send me this)'}
+          </p>
+        </>
       )}
       {/* L'erreur RESTE affichée (sélectionnable) jusqu'au prochain essai : c'est notre diagnostic */}
       {t.lastError && <p className="mt-1 select-text break-words text-rose-400">{t.lastError}</p>}
-      {t.foundServices && !t.lastError && (
-        <p className="mt-1 font-mono text-slate-500">services: {t.foundServices}</p>
-      )}
       {supported ? (
         t.status !== 'active' && (
           <button
