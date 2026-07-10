@@ -8,6 +8,7 @@ import { chestCapacity, roadFindDistance, useGameStore } from '../../core/state/
 import { walkManager } from '../../input/walkManager'
 import { BELT_MIN_KMH, BELT_MAX_KMH } from '../../input/TreadmillSource'
 import { walkLog, type WalkTotals } from '../../core/walkLog'
+import { dayKey } from '../../core/dayKey'
 import type { WalkDayRow } from '../../core/save/db'
 import { gameEvents } from '../../game/bridge/events'
 import { formatDistance, useWalkSpeed } from '../components/StatusBar'
@@ -264,15 +265,15 @@ function WalkJournalPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
 
-  // Les 14 derniers jours CALENDAIRES (les jours sans marche comptent — et se voient)
+  // Les 14 derniers jours CALENDAIRES (les jours sans marche comptent — et se voient).
+  // « Jour » = bascule à 3 h du matin (dayKey) : la marche nocturne compte pour la veille.
   const bars: { day: string; meters: number }[] = []
   for (let i = 13; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const key = dayKey(new Date(Date.now() - i * 86_400_000))
     bars.push({ day: key, meters: rows.find((r) => r.day === key)?.meters ?? 0 })
   }
   const maxM = Math.max(1000, ...bars.map((b) => b.meters))
+  const fmtDuration = (min: number) => (min >= 60 ? `${Math.floor(min / 60)}h${String(Math.round(min % 60)).padStart(2, '0')}` : `${Math.round(min)}min`)
 
   return (
     <div className="w-full max-w-sm rounded-xl border border-sky-900/60 bg-slate-900 p-4">
@@ -300,11 +301,27 @@ function WalkJournalPanel() {
       </div>
 
       {totals && (
-        <div className="mt-2 grid grid-cols-4 gap-1 text-center">
+        <div className="mt-2 grid grid-cols-5 gap-1 text-center">
           <div><div className="font-bold text-sky-300">{(totals.meters / 1000).toFixed(1)}</div><div className="text-[9px] text-slate-500">km total</div></div>
           <div><div className="font-bold text-sky-300">{Math.round(totals.steps).toLocaleString()}</div><div className="text-[9px] text-slate-500">steps</div></div>
+          <div><div className="font-bold text-sky-300">{fmtDuration(totals.minutes)}</div><div className="text-[9px] text-slate-500">walked</div></div>
           <div><div className="font-bold text-sky-300">{totals.days}</div><div className="text-[9px] text-slate-500">days</div></div>
           <div><div className="font-bold text-sky-300">{(totals.bestDayMeters / 1000).toFixed(1)}</div><div className="text-[9px] text-slate-500">best km</div></div>
+        </div>
+      )}
+
+      {/* L'historique lisible : les derniers jours de marche, ligne par ligne */}
+      {!editing && rows.length > 0 && (
+        <div className="mt-2 flex flex-col gap-0.5 border-t border-slate-800 pt-2">
+          {rows.slice(0, 7).map((r) => (
+            <div key={r.day} className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-slate-500">{r.day.slice(5)}</span>
+              <span className="text-sky-200">{(r.meters / 1000).toFixed(2)} km</span>
+              <span className="text-slate-400">{Math.round(r.steps).toLocaleString()} steps</span>
+              <span className="text-slate-500">{fmtDuration(r.minutes)}</span>
+            </div>
+          ))}
+          {rows.length > 7 && <p className="text-center text-[9px] text-slate-600">…{rows.length - 7} more in ✎ Edit</p>}
         </div>
       )}
 
@@ -334,6 +351,15 @@ function WalkJournalPanel() {
                   className="w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right text-sky-200"
                 />
                 <span className="text-slate-600">steps</span>
+                <input
+                  type="number" min={0} step={5} value={Math.round(r.minutes)}
+                  onChange={(e) => {
+                    const mn = Math.max(0, Number(e.target.value) || 0)
+                    void walkLog.updateDay(r.day, { minutes: mn }).then(refresh)
+                  }}
+                  className="w-12 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right text-sky-200"
+                />
+                <span className="text-slate-600">min</span>
                 <button onClick={() => void walkLog.deleteDay(r.day).then(refresh)} className="ml-auto text-rose-500">✕</button>
               </div>
             ))}

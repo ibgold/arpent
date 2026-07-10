@@ -8,6 +8,7 @@ import {
   TREE_MAX_STAGE,
   type SeedDef,
 } from '../../core/balance/garden'
+import { dayKey } from '../../core/dayKey'
 import { useGameStore } from '../../core/state/store'
 import type { PlotState, TreeState } from '../../core/types'
 
@@ -46,7 +47,7 @@ export function GardenView() {
   const [selected, setSelected] = useState<{ kind: 'plot' | 'tree'; idx: number } | null>(null)
   const [toast, setToast] = useState('')
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = dayKey()
   const fed = !!garden.fedUntilDay && garden.fedUntilDay >= today
   const mult = streakMult(streak.days)
   const bloomCount = Object.values(garden.blooms).reduce((a, b) => a + b, 0)

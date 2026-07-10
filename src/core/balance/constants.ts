@@ -28,6 +28,9 @@ export const BALANCE = {
   /** Drain additionnel par salle franchie (les runs profondes coûtent plus) */
   runDrainPerRoom: 0.15,
 
+  /** La journée bascule à cette heure (3 = marcher à 1 h du matin compte pour la veille) */
+  dayRolloverHour: 3,
+
   // --- Pas quotidiens : le quota santé ---
   /** Longueur de foulée moyenne (podomètre : pas → distance) */
   stepLengthM: 0.7,

@@ -1,14 +1,13 @@
 import { db, type WalkDayRow } from './save/db'
 import { BALANCE } from './balance/constants'
+import { dayKey } from './dayKey'
 
 // Le journal de marche 📖 : la trace de TA marche réelle, un jour = une ligne.
 // Totalement indépendant de la save du jeu : reset/import du jeu → journal intact.
 // Il a son propre reset et son édition (Walk → Journal), rien d'autre n'y touche.
 
-function todayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+// La clé de jour vient de core/dayKey.ts : bascule à 3 h du matin (marche nocturne = la veille)
+const todayKey = dayKey
 
 export interface WalkTotals {
   meters: number

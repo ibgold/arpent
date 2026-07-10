@@ -9,13 +9,9 @@ import {
 } from '../../core/balance/buildings'
 import { GIFT_THRESHOLD_M, moodOf, SPECIES_ICONS, type Species } from '../../core/balance/followers'
 import { prestigeFollowerBonus } from '../../core/balance/prestigePerks'
+import { dayKey as todayKey } from '../../core/dayKey'
 import { useGameStore } from '../../core/state/store'
 import { gameEvents } from '../../game/bridge/events'
-
-function todayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
 
 /** Fiche contextuelle d'un bâtiment : s'ouvre en tapant le bâtiment dans la scène village. */
 export function BuildingSheet() {

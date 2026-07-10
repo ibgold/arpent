@@ -29,6 +29,7 @@ import {
   TREE_MAX_STAGE,
 } from '../balance/garden'
 import { CHALLENGE_REWARD_GOLD, challengeDayKey, challengeWonToday } from '../balance/challenge'
+import { dayKey, yesterdayKey } from '../dayKey'
 import { chestDistanceM, pendingPerkPicks, PRESTIGE_PERKS, prestigeFollowerBonus } from '../balance/prestigePerks'
 import { rollVillageEventId, VILLAGE_EVENT_CHANCE } from '../balance/villageEvents'
 import type { AcquireResult, Follower, GameState, GardenState, ItemSlot, RunState, RunSummary } from '../types'
@@ -230,15 +231,8 @@ export function heroStats(s: GameState): HeroDerivedStats {
   return { maxHp: Math.round(maxHp), atk: Math.round(atk), speed: Math.round(speed) }
 }
 
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function yesterdayKey(): string {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().slice(0, 10)
-}
+// « Aujourd'hui » = la clé centralisée (bascule à 3 h du matin, heure locale) — voir core/dayKey.ts
+const todayKey = dayKey
 
 export const useGameStore = create<Store>((set, get) => ({
   ...initialGameState(),
@@ -900,7 +894,7 @@ export const useGameStore = create<Store>((set, get) => ({
     const until = new Date()
     until.setDate(until.getDate() + 2)
     set({
-      garden: { ...s.garden, food: s.garden.food - cost, fedUntilDay: until.toISOString().slice(0, 10) },
+      garden: { ...s.garden, food: s.garden.food - cost, fedUntilDay: dayKey(until) },
     })
     return true
   },

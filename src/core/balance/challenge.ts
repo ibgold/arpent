@@ -2,6 +2,7 @@
 // grosse récompense à la victoire (boss battu). Déterministe : tout le monde a le même défi.
 
 import type { GameState } from '../types'
+import { dayKey } from '../dayKey'
 
 export interface ChallengeMod {
   id: string
@@ -24,10 +25,9 @@ export const CHALLENGE_MODS: ChallengeMod[] = [
   { id: 'thick-hide', name: 'Thick Hide', icon: '🐗', desc: 'Enemies +80% HP · XP ×1.3', enemyHpMult: 1.8, enemyAtkMult: 1, goldMult: 1.2, xpMult: 1.3 },
 ]
 
-/** Jour local YYYY-MM-DD (même clé que le streak) */
+/** Jour local YYYY-MM-DD (même clé que le streak — bascule à 3 h du matin) */
 export function challengeDayKey(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return dayKey()
 }
 
 function hashDay(day: string): number {

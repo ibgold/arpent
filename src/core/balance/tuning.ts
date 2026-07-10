@@ -60,6 +60,7 @@ export const TUNABLE_GROUPS: TunableGroup[] = [
       { key: 'hybridDamageBonusPerKmh', label: 'Hybrid dmg per km/h', min: 0, max: 0.3, step: 0.01 },
       { key: 'strideBaseM', label: 'Stride base (m)', min: 0.2, max: 0.7, step: 0.01 },
       { key: 'stridePerKmh', label: 'Stride per km/h (m)', min: 0, max: 0.15, step: 0.005 },
+      { key: 'dayRolloverHour', label: 'Day starts at (hour)', min: 0, max: 8, step: 1 },
       { key: 'dailyGoalGold', label: 'Daily goal gold', min: 0, max: 1000, step: 25 },
       { key: 'boonRerollCost', label: 'Ability reroll cost ⚡', min: 0, max: 200, step: 5 },
     ],
