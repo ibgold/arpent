@@ -42,7 +42,7 @@ Cinq modes dans l'onglet **👟 Walk** (architecture `WalkDataSource` : une inte
 
 | Mode | Usage | Fonctionnement |
 |---|---|---|
-| 🏃 **Treadmill (Bluetooth)** | **Le meilleur** — tapis compatible | Lit **directement** la vitesse et les pas réels du tapis par Bluetooth (Web Bluetooth). Protocole PitPat/Superun BA10 (service `0xff00`, notify `0xff02`, write `0xff01` + heartbeat). Aucun réglage, aucune synchro. **Chrome/Edge sur Windows/Android uniquement** (jamais iOS/Firefox), un appareil à la fois (fermer l'app PitPat). Bouton « Connect treadmill » → sélecteur du navigateur. |
+| 🏃 **Treadmill (Bluetooth)** | **Le meilleur** — tapis DeerRun/Superun/PitPat (validé sur Superun BA10) | Lit **directement** la vitesse réelle du tapis ET **le contrôle** (start/stop/±vitesse, borné 0,6-6,0 km/h, aussi depuis le widget flottant). 3 variantes auto-détectées : superun (`0xffff`), standard (`0xfff0`), pitpat (`0xfba0` + unlock). Protocole d'après qdomyos-zwift ; l'init part immédiatement après l'abonnement (sinon le tapis raccroche). **Chrome/Edge sur Windows/Android uniquement**, un appareil à la fois : Bluetooth du téléphone coupé, et supprimer « Mindtree-HID » des périphériques Windows s'il y est. |
 | 🎚 **Manual** | Tapis sans Bluetooth | Tu règles le curseur sur la vitesse affichée par ton tapis. |
 | 🤖 **Simulation** | Tests au bureau | Vitesse simulée réglable (avec micro-variations). |
 | 🛰 **GPS** | Marche en extérieur | Distance réelle entre fixes GPS (haversine). Fixes imprécis (>35 m) ignorés ; vitesses <1 ou >12 km/h ignorées (jitter, véhicule). Nécessite la permission de localisation. |
