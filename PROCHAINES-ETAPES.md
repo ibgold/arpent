@@ -219,6 +219,10 @@ l'onboarding en français et noter l'incohérence.
 
 ## §7 — Historique et statistiques
 
+> **Partiellement fait (2026-07-10)** : le **Journal de marche 📖** existe (`src/core/walkLog.ts`,
+> table Dexie `walkLog` séparée de la save — reset du jeu → journal intact ; édition/suppression
+> par jour + reset propre dans Walk → ✎ Edit). Reste : stats de JEU (runs/boss/kills) si désiré.
+
 **Pourquoi** : dopamine gratuite (profil TDAH) + valorise la marche passée.
 
 **Modèle** (nouvelles clés persistées → **migration v15**, snapshot, purge resetAll) :

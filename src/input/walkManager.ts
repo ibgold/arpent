@@ -1,4 +1,5 @@
 import { useGameStore } from '../core/state/store'
+import { walkLog } from '../core/walkLog'
 import { ManualSource } from './ManualSource'
 import { SimulatedSource } from './SimulatedSource'
 import { GpsSource } from './GpsSource'
@@ -104,6 +105,8 @@ class WalkManager {
     // dtS ≈ 1s par tick des deux sources ; on le déduit de la distance pour rester exact
     const dtS = s.speedKmh > 0 ? s.distanceDeltaM / (s.speedKmh / 3.6) : 0
     useGameStore.getState().applyWalkSample(s.distanceDeltaM, s.speedKmh, dtS)
+    // Journal de marche 📖 : indépendant de la save du jeu (survit aux resets)
+    walkLog.record(s.distanceDeltaM, s.speedKmh, dtS)
     gameEvents.emit('walk:speed', s.speedKmh)
   }
 

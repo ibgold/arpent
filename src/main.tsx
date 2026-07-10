@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './app/App'
 import { loadSave, startAutosave } from './core/save/persistence'
+import { walkLog } from './core/walkLog'
 import { walkManager } from './input/walkManager'
 import { initWakeLock } from './shell/wakeLock'
 
 async function bootstrap() {
   await loadSave()
+  await walkLog.init()
   startAutosave()
   walkManager.init()
   initWakeLock()

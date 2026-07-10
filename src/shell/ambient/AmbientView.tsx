@@ -7,6 +7,8 @@ import { catalogItem } from '../../core/balance/catalog'
 import { chestCapacity, roadFindDistance, useGameStore } from '../../core/state/store'
 import { walkManager } from '../../input/walkManager'
 import { BELT_MIN_KMH, BELT_MAX_KMH } from '../../input/TreadmillSource'
+import { walkLog, type WalkTotals } from '../../core/walkLog'
+import type { WalkDayRow } from '../../core/save/db'
 import { gameEvents } from '../../game/bridge/events'
 import { formatDistance, useWalkSpeed } from '../components/StatusBar'
 import { isPipSupported, openPipWidget } from './pip'
@@ -65,6 +67,7 @@ export function AmbientView() {
       </div>
 
       <DailyStepsPanel />
+      <WalkJournalPanel />
       <RoadFindPanel />
       <ChestPanel />
       <ErrandsPanel />
@@ -236,6 +239,120 @@ function RoadFindPanel() {
       {lastFind && lastDef && (
         <div className={`mt-2 rounded-lg py-2 text-center text-sm font-bold ${lastFind.isNew ? 'bg-amber-950 text-amber-300' : 'bg-slate-950 text-violet-300'}`}>
           {lastFind.isNew ? `★ NEW: ${lastDef.name}` : `${lastDef.name} → +${lastFind.essence}⚗`}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Le Journal de marche 📖 : la trace de la marche RÉELLE. Indépendant de la save du jeu
+ *  (reset du jeu → journal intact) ; il a son propre reset et son édition. */
+function WalkJournalPanel() {
+  const [rows, setRows] = useState<WalkDayRow[]>([])
+  const [totals, setTotals] = useState<WalkTotals | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  const refresh = async () => {
+    setRows(await walkLog.getRecent(30))
+    setTotals(await walkLog.getTotals())
+  }
+  useEffect(() => {
+    void refresh()
+    const t = setInterval(() => { if (!editing) void refresh() }, 5000)
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing])
+
+  // Les 14 derniers jours CALENDAIRES (les jours sans marche comptent — et se voient)
+  const bars: { day: string; meters: number }[] = []
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date()
+    d.setDate(d.getDate() - i)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    bars.push({ day: key, meters: rows.find((r) => r.day === key)?.meters ?? 0 })
+  }
+  const maxM = Math.max(1000, ...bars.map((b) => b.meters))
+
+  return (
+    <div className="w-full max-w-sm rounded-xl border border-sky-900/60 bg-slate-900 p-4">
+      <div className="mb-1 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-sky-200">📖 Walk journal</h3>
+        <button onClick={() => setEditing(!editing)} className="rounded bg-slate-800 px-2 py-1 text-[11px] text-slate-400">
+          {editing ? 'Done' : '✎ Edit'}
+        </button>
+      </div>
+      <p className="mb-2 text-[10px] text-slate-600">Your real walking — survives game resets.</p>
+
+      {/* 14 jours en barres */}
+      <div className="flex h-16 items-end gap-1">
+        {bars.map((b) => (
+          <div key={b.day} className="flex-1" title={`${b.day} · ${(b.meters / 1000).toFixed(2)} km`}>
+            <div
+              className={`w-full rounded-t ${b.meters > 0 ? 'bg-sky-500' : 'bg-slate-800'}`}
+              style={{ height: `${Math.max(3, (b.meters / maxM) * 100)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-0.5 flex justify-between text-[9px] text-slate-600">
+        <span>{bars[0].day.slice(5)}</span><span>today</span>
+      </div>
+
+      {totals && (
+        <div className="mt-2 grid grid-cols-4 gap-1 text-center">
+          <div><div className="font-bold text-sky-300">{(totals.meters / 1000).toFixed(1)}</div><div className="text-[9px] text-slate-500">km total</div></div>
+          <div><div className="font-bold text-sky-300">{Math.round(totals.steps).toLocaleString()}</div><div className="text-[9px] text-slate-500">steps</div></div>
+          <div><div className="font-bold text-sky-300">{totals.days}</div><div className="text-[9px] text-slate-500">days</div></div>
+          <div><div className="font-bold text-sky-300">{(totals.bestDayMeters / 1000).toFixed(1)}</div><div className="text-[9px] text-slate-500">best km</div></div>
+        </div>
+      )}
+
+      {/* Édition : corriger un jour, en supprimer, ou reset le journal SEUL */}
+      {editing && (
+        <div className="mt-3 border-t border-slate-800 pt-2">
+          <div className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+            {rows.length === 0 && <p className="text-[11px] text-slate-600">No walks recorded yet.</p>}
+            {rows.map((r) => (
+              <div key={r.day} className="flex items-center gap-1.5 text-[11px]">
+                <span className="w-[74px] text-slate-400">{r.day.slice(5)}</span>
+                <input
+                  type="number" min={0} step={0.01} value={Number((r.meters / 1000).toFixed(2))}
+                  onChange={(e) => {
+                    const km = Math.max(0, Number(e.target.value) || 0)
+                    void walkLog.updateDay(r.day, { meters: km * 1000 }).then(refresh)
+                  }}
+                  className="w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right text-sky-200"
+                />
+                <span className="text-slate-600">km</span>
+                <input
+                  type="number" min={0} step={100} value={Math.round(r.steps)}
+                  onChange={(e) => {
+                    const st = Math.max(0, Number(e.target.value) || 0)
+                    void walkLog.updateDay(r.day, { steps: st }).then(refresh)
+                  }}
+                  className="w-16 rounded border border-slate-700 bg-slate-950 px-1 py-0.5 text-right text-sky-200"
+                />
+                <span className="text-slate-600">steps</span>
+                <button onClick={() => void walkLog.deleteDay(r.day).then(refresh)} className="ml-auto text-rose-500">✕</button>
+              </div>
+            ))}
+          </div>
+          {!confirmReset ? (
+            <button onClick={() => setConfirmReset(true)} className="mt-2 w-full rounded-lg bg-slate-800 py-1.5 text-[11px] text-rose-400">
+              Reset journal (game save untouched)
+            </button>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => { void walkLog.resetAll().then(refresh); setConfirmReset(false) }}
+                className="flex-1 rounded-lg bg-rose-700 py-1.5 text-[11px] font-bold text-white"
+              >
+                Yes, erase my walk history
+              </button>
+              <button onClick={() => setConfirmReset(false)} className="flex-1 rounded-lg bg-slate-800 py-1.5 text-[11px]">Cancel</button>
+            </div>
+          )}
         </div>
       )}
     </div>
