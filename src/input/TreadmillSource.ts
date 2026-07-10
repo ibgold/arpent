@@ -84,43 +84,7 @@ export class TreadmillSource implements WalkDataSource {
       this.device = device
       this.deviceName = device.name ?? 'tapis'
       device.addEventListener('gattserverdisconnected', this.onDisconnect)
-      const server = await device.gatt!.connect()
-
-      // Découverte : on liste les services autorisés présents, puis on cherche les caractéristiques connues
-      const services = await server.getPrimaryServices()
-      this.foundServices = services.map((s) => s.uuid.slice(4, 8)).join(', ') || 'aucun service connu'
-      let ftmsService: BluetoothRemoteGATTService | undefined
-      for (const service of services) {
-        if (service.uuid === BluetoothUUID.getService(FTMS_SERVICE)) ftmsService = service
-        try {
-          const chars = await service.getCharacteristics()
-          const notify = chars.find((c) => c.uuid === BluetoothUUID.getCharacteristic(PITPAT_NOTIFY))
-          const write = chars.find((c) => c.uuid === BluetoothUUID.getCharacteristic(PITPAT_WRITE))
-          if (notify && write) {
-            this.notifyChar = notify
-            this.writeChar = write
-            this.protocol = 'pitpat'
-            break
-          }
-        } catch { /* service sans caractéristiques lisibles : suivant */ }
-      }
-      // Fallback : le standard FTMS (au cas où le firmware le parle)
-      if (!this.protocol && ftmsService) {
-        this.notifyChar = await ftmsService.getCharacteristic(FTMS_TREADMILL_DATA)
-        this.protocol = 'ftms'
-      }
-      if (!this.protocol || !this.notifyChar) {
-        this.device.gatt?.disconnect()
-        this.status = 'denied'
-        this.lastError = `Tapis trouvé (« ${this.deviceName} ») mais protocole inconnu. Services vus : ${this.foundServices}. Envoie-moi cette ligne !`
-        return
-      }
-
-      await this.notifyChar.startNotifications()
-      this.notifyChar.addEventListener('characteristicvaluechanged', this.onNotify)
-      this.status = 'active'
-      this.lastAt = 0
-      if (this.protocol === 'pitpat') void this.sendHeartbeat() // amorce le flux
+      await this.attach()
     } catch (err) {
       const e = err as DOMException
       if (e?.name === 'NotFoundError') {
@@ -133,9 +97,77 @@ export class TreadmillSource implements WalkDataSource {
     }
   }
 
+  /** Connexion GATT + abonnement, avec retries : ces tapis raccrochent si on est trop lent,
+   *  et un 2ᵉ essai immédiat passe très souvent là où le 1ᵉʳ échoue (particularité Windows/BLE). */
+  private async attach(): Promise<void> {
+    const device = this.device
+    if (!device) return
+    let lastErr: unknown
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        this.status = 'connecting'
+        const server = await device.gatt!.connect()
+        await this.discover(server)
+        this.status = 'active'
+        this.lastError = ''
+        this.lastAt = 0
+        if (this.protocol === 'pitpat') void this.sendHeartbeat() // amorce le flux
+        return
+      } catch (err) {
+        lastErr = err
+        // Le tapis a raccroché en cours de route : petite pause puis on retente
+        try { device.gatt?.disconnect() } catch { /* ignore */ }
+        await new Promise((r) => setTimeout(r, 350 * attempt))
+      }
+    }
+    const e = lastErr as DOMException
+    this.status = 'denied'
+    this.lastError = `${e?.name ?? 'Erreur'}: ${e?.message ?? String(lastErr)} (4 essais)`
+  }
+
+  /** Va droit aux services connus (rapide) — l'énumération complète ne sert qu'au diagnostic final */
+  private async discover(server: BluetoothRemoteGATTServer): Promise<void> {
+    this.protocol = undefined
+    this.notifyChar = undefined
+    this.writeChar = undefined
+    // 1. Protocole PitPat : caractéristiques ff02/ff01 sous l'un des services candidats
+    for (const uuid of [0xff00, 0xfff0, 0xffe0]) {
+      try {
+        const service = await server.getPrimaryService(uuid)
+        this.notifyChar = await service.getCharacteristic(PITPAT_NOTIFY)
+        this.writeChar = await service.getCharacteristic(PITPAT_WRITE)
+        this.protocol = 'pitpat'
+        break
+      } catch { /* pas ce service : suivant */ }
+    }
+    // 2. Fallback : le standard FTMS
+    if (!this.protocol) {
+      try {
+        const service = await server.getPrimaryService(FTMS_SERVICE)
+        this.notifyChar = await service.getCharacteristic(FTMS_TREADMILL_DATA)
+        this.protocol = 'ftms'
+      } catch { /* pas de FTMS non plus */ }
+    }
+    if (!this.protocol || !this.notifyChar) {
+      // Diagnostic : on liste ce que le tapis expose (peut échouer si déjà déconnecté)
+      try {
+        const services = await server.getPrimaryServices()
+        this.foundServices = services.map((s) => s.uuid.slice(4, 8)).join(', ') || 'aucun'
+      } catch { this.foundServices = 'illisibles (déconnecté trop vite)' }
+      throw new DOMException(`Protocole inconnu — services vus : ${this.foundServices}. Envoie-moi cette ligne !`, 'NotSupportedError')
+    }
+    // S'abonner IMMÉDIATEMENT : c'est ce qui apaise le watchdog du tapis
+    await this.notifyChar.startNotifications()
+    this.notifyChar.removeEventListener('characteristicvaluechanged', this.onNotify)
+    this.notifyChar.addEventListener('characteristicvaluechanged', this.onNotify)
+  }
+
   private onDisconnect = (): void => {
-    if (this.status === 'active') this.status = 'lost'
     this.lastSpeedKmh = 0
+    if (this.status !== 'active') return
+    // Coupure en cours d'usage : on retente tout seul (pas de geste requis, on a déjà l'appareil)
+    this.status = 'lost'
+    void this.attach()
   }
 
   private onNotify = (event: Event): void => {
