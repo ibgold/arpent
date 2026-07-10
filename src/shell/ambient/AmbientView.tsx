@@ -274,7 +274,11 @@ function TreadmillPanel() {
           {t.lastSpeedKmh.toFixed(1)} km/h · {t.treadmillSteps} steps · {(t.treadmillDistanceM / 1000).toFixed(2)} km
         </p>
       )}
-      {t.lastError && t.status === 'denied' && <p className="mt-1 text-rose-400">{t.lastError}</p>}
+      {/* L'erreur RESTE affichée (sélectionnable) jusqu'au prochain essai : c'est notre diagnostic */}
+      {t.lastError && <p className="mt-1 select-text break-words text-rose-400">{t.lastError}</p>}
+      {t.foundServices && !t.lastError && (
+        <p className="mt-1 font-mono text-slate-500">services: {t.foundServices}</p>
+      )}
       {supported ? (
         t.status !== 'active' && (
           <button
@@ -292,7 +296,11 @@ function TreadmillPanel() {
       )}
       <p className="mt-2 text-slate-600">
         Turn the treadmill on, tap Connect, then pick your treadmill in the browser popup. Its real speed and
-        steps drive the game — no manual setting. (One device at a time: close the PitPat app first.)
+        steps drive the game — no manual setting.
+      </p>
+      <p className="mt-1 text-slate-600">
+        Treadmill not in the list? It only advertises when NOTHING is connected to it: unplug it 10 s,
+        turn off your phone's Bluetooth (the PitPat app grabs it), and don't pair it in Windows settings.
       </p>
     </div>
   )
