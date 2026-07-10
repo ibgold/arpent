@@ -33,14 +33,6 @@ export const BALANCE = {
   hybridDamageBonusPerKmh: 0.06, // +6% dégâts par km/h de marche en direct
   hybridEnergyMultiplier: 1.25,  // l'énergie gagnée en run est boostée
 
-  // --- Cadence de tir rythmée par la marche réelle (le cœur : on tire au rythme où l'on marche) ---
-  /** Vitesse de marche (km/h) qui donne la cadence de tir NORMALE ; en dessous on tire plus lentement, au-dessus plus vite */
-  combatPaceRefKmh: 2.0,
-  /** Plancher : fraction de cadence minimale à l'arrêt (0.4 = 40% de la cadence — jamais sans défense) */
-  combatPaceFloor: 0.4,
-  /** Plafond : bonus de cadence max en marchant vite (1.6 = jusqu'à +60% de cadence) */
-  combatPaceCeil: 1.6,
-
   // --- Héros ---
   heroBaseHp: 100,
   heroHpPerLevel: 14,   // rééquilibrage : la croissance suit mieux le scaling des régions
@@ -106,9 +98,10 @@ export const BALANCE = {
   upgradeStoneBase: 3,
   upgradeResGrowth: 1.35,
 
-  // --- Tir en mouvement : possible mais à cadence réduite (immobile = plein régime) ---
-  movingFireCooldownMult: 2.1,
-  movingFireRangeMult: 0.75,
+  // --- Tir en mouvement : même cadence et même portée qu'à l'arrêt (le perso tire pareil en bougeant).
+  //     Remettre >1 dans le Balance Lab pour restaurer le compromis « immobile = plein régime ». ---
+  movingFireCooldownMult: 1.0,
+  movingFireRangeMult: 1.0,
 
   // --- Loot : les objets ne tombent presque plus des mobs (élites/boss/coffres/cages) ---
   lootDropChance: 0.04,

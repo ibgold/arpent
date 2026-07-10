@@ -136,14 +136,6 @@ export function RunHud() {
           </span>
           <span>
             💎 {run.loot.length} · ☠️ {run.kills} · 🪵 {run.wood} · 🪨 {run.stone}
-            {(() => {
-              const rate = Math.min(BALANCE.combatPaceCeil, Math.max(BALANCE.combatPaceFloor, speed / BALANCE.combatPaceRefKmh))
-              return (
-                <span className={rate >= 1 ? 'text-emerald-400' : 'text-amber-400'}>
-                  {' '}· 🔫 ×{rate.toFixed(1)}
-                </span>
-              )
-            })()}
             {speed > 0 && (
               <span className="text-emerald-400">
                 {' '}· HYBRID +{Math.round(speed * BALANCE.hybridDamageBonusPerKmh * 100)}% dmg
