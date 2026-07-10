@@ -285,13 +285,13 @@ function WalkJournalPanel() {
       </div>
       <p className="mb-2 text-[10px] text-slate-600">Your real walking — survives game resets.</p>
 
-      {/* 14 jours en barres */}
+      {/* 14 jours en barres (chaque colonne DOIT avoir h-full pour que la hauteur % fonctionne) */}
       <div className="flex h-16 items-end gap-1">
         {bars.map((b) => (
-          <div key={b.day} className="flex-1" title={`${b.day} · ${(b.meters / 1000).toFixed(2)} km`}>
+          <div key={b.day} className="flex h-full flex-1 items-end" title={`${b.day} · ${(b.meters / 1000).toFixed(2)} km`}>
             <div
               className={`w-full rounded-t ${b.meters > 0 ? 'bg-sky-500' : 'bg-slate-800'}`}
-              style={{ height: `${Math.max(3, (b.meters / maxM) * 100)}%` }}
+              style={{ height: `${Math.max(4, (b.meters / maxM) * 100)}%` }}
             />
           </div>
         ))}

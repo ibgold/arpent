@@ -24,6 +24,19 @@ class WalkLog {
   async init(): Promise<void> {
     const day = todayKey()
     try {
+      // Auto-réparation : une ligne datée APRÈS le jour logique courant est un artefact
+      // (ex. marche post-minuit enregistrée avant la règle des 3 h) → fusionnée dans le jour courant
+      const future = await db.walkLog.where('day').above(day).toArray()
+      if (future.length > 0) {
+        const base = (await db.walkLog.get(day)) ?? { day, meters: 0, steps: 0, minutes: 0 }
+        for (const f of future) {
+          base.meters += f.meters
+          base.steps += f.steps
+          base.minutes += f.minutes
+          await db.walkLog.delete(f.day)
+        }
+        await db.walkLog.put(base)
+      }
       this.today = (await db.walkLog.get(day)) ?? { day, meters: 0, steps: 0, minutes: 0 }
     } catch {
       this.today = { day, meters: 0, steps: 0, minutes: 0 }
