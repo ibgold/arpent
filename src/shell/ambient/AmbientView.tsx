@@ -183,9 +183,18 @@ export function AmbientView() {
 function DailyStepsPanel() {
   const daily = useGameStore((s) => s.dailySteps)
   const setDailyGoal = useGameStore((s) => s.setDailyGoal)
-  const steps = Math.floor(daily.steps)
+  // Le store ne remet le compteur à zéro qu'au prochain échantillon de marche ; l'AFFICHAGE, lui,
+  // doit basculer à 3 h pile. Si la date stockée n'est pas le jour logique courant → on montre 0.
+  // (tick chaque minute pour capter le passage de 3 h même sans aucun événement)
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => tick((n) => n + 1), 60_000)
+    return () => clearInterval(t)
+  }, [])
+  const isToday = daily.date === dayKey()
+  const steps = isToday ? Math.floor(daily.steps) : 0
   const pct = Math.min(100, (steps / daily.goal) * 100)
-  const done = daily.rewarded
+  const done = isToday && daily.rewarded
 
   return (
     <div className={`w-full max-w-sm rounded-xl border p-4 ${done ? 'border-emerald-700 bg-emerald-950/30' : 'border-slate-700 bg-slate-900'}`}>
