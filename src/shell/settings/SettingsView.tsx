@@ -4,6 +4,7 @@ import { exportSaveJson, importSaveJson, resetSave } from '../../core/save/persi
 import { BALANCE_DEFAULTS, TUNABLE_GROUPS, type TunableDef } from '../../core/balance/tuning'
 import { GARDEN_MODES } from '../../core/balance/garden'
 import { gistSync } from '../../core/gistSync'
+import { deviceId } from '../../core/walkLog'
 
 export function SettingsView() {
   const settings = useGameStore((s) => s.settings)
@@ -175,10 +176,15 @@ function JournalSync() {
       </div>
       <div className="mt-2 text-[11px]">
         {gistSync.state === 'ok' && (
-          <p className="text-emerald-400">
-            ✓ Synced {gistSync.lastSyncAt ? `at ${new Date(gistSync.lastSyncAt).toLocaleTimeString()}` : ''}
-            {gistSync.lastPulled > 0 ? ` · ${gistSync.lastPulled} entries pulled` : ''}
-          </p>
+          <>
+            <p className="text-emerald-400">
+              ✓ Synced {gistSync.lastSyncAt ? `at ${new Date(gistSync.lastSyncAt).toLocaleTimeString()}` : ''}
+              {gistSync.lastPulled > 0 ? ` · ${gistSync.lastPulled} entries pulled` : ' · nothing new pulled'}
+            </p>
+            <p className="select-text font-mono text-slate-500">
+              gist {gistSync.gistIdShort}… · remote {gistSync.remoteCount} · local {gistSync.localCount} · device {deviceId()}
+            </p>
+          </>
         )}
         {gistSync.state === 'error' && <p className="select-text text-rose-400">✗ {gistSync.lastError}</p>}
         {gistSync.state === 'syncing' && <p className="text-slate-400">Syncing…</p>}

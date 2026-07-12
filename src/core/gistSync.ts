@@ -18,6 +18,10 @@ export const gistSync = {
   lastSyncAt: 0,
   lastError: '',
   lastPulled: 0,
+  /** Diagnostics affichés dans Réglages (pour déboguer une sync à distance) */
+  gistIdShort: '',
+  localCount: 0,
+  remoteCount: 0,
 
   get token(): string {
     return localStorage.getItem(TOKEN_KEY) ?? ''
@@ -44,13 +48,23 @@ export const gistSync = {
     this.state = 'syncing'
     this.lastError = ''
     try {
-      const gistId = await this.findOrCreateGist()
-      // PULL : le contenu distant, fusionné localement (le plus récent par ligne gagne)
-      const remote = await this.pull(gistId)
+      const gistIds = await this.findGists()
+      const primary = gistIds[0] ?? (await this.createGist())
+      this.gistIdShort = primary.slice(0, 8)
+      // PULL : le contenu de TOUS les gists au bon nom (si deux appareils en ont créé chacun un,
+      // on fusionne tout puis on consolide dans le premier et on supprime les doublons)
+      let remote: WalkEntryRow[] = []
+      for (const id of gistIds) remote = remote.concat(await this.pull(id))
+      this.remoteCount = remote.length
       this.lastPulled = await walkLog.mergeEntries(remote)
-      // PUSH : l'état fusionné complet repart dans le gist
+      // PUSH : l'état fusionné complet repart dans le gist principal
       const merged = await walkLog.exportEntries()
-      await this.push(gistId, merged)
+      this.localCount = merged.length
+      await this.push(primary, merged)
+      for (const dupe of gistIds.slice(1)) {
+        try { await this.api('DELETE', `/gists/${dupe}`) } catch { /* pas grave, retentera */ }
+      }
+      localStorage.setItem(GIST_ID_KEY, primary)
       this.state = 'ok'
       this.lastSyncAt = Date.now()
       return true
@@ -61,22 +75,22 @@ export const gistSync = {
     }
   },
 
-  async findOrCreateGist(): Promise<string> {
-    const cached = localStorage.getItem(GIST_ID_KEY)
-    if (cached) return cached
-    // Cherche un gist existant (créé par l'autre appareil) avant d'en créer un
-    const list = await this.api('GET', '/gists?per_page=100') as { id: string; description: string }[]
-    const found = list.find((g) => g.description === GIST_DESC)
-    if (found) {
-      localStorage.setItem(GIST_ID_KEY, found.id)
-      return found.id
-    }
+  /** Tous les gists portant notre description (le plus ancien d'abord = le principal) */
+  async findGists(): Promise<string[]> {
+    const list = await this.api('GET', '/gists?per_page=100') as { id: string; description: string; created_at: string }[]
+    if (!Array.isArray(list)) throw new Error('Réponse gists inattendue — utilise un token CLASSIC avec le scope gist (les tokens fine-grained ne supportent pas les gists)')
+    return list
+      .filter((g) => g.description === GIST_DESC)
+      .sort((a, b) => (a.created_at < b.created_at ? -1 : 1))
+      .map((g) => g.id)
+  },
+
+  async createGist(): Promise<string> {
     const created = await this.api('POST', '/gists', {
       description: GIST_DESC,
       public: false,
       files: { [FILE_NAME]: { content: JSON.stringify({ entries: [], from: deviceId() }) } },
     }) as { id: string }
-    localStorage.setItem(GIST_ID_KEY, created.id)
     return created.id
   },
 
@@ -116,6 +130,7 @@ export const gistSync = {
       body: body ? JSON.stringify(body) : undefined,
     })
     if (res.status === 401) throw new Error('Jeton invalide ou expiré (Settings → Sync)')
+    if (res.status === 403) throw new Error('Accès refusé — le jeton doit être un token CLASSIC avec le scope « gist » (les tokens fine-grained ne marchent pas pour les gists)')
     if (res.status === 404 && path.startsWith('/gists/')) {
       // Le gist a été supprimé côté GitHub : on oublie l'id et on réessaiera
       localStorage.removeItem(GIST_ID_KEY)
