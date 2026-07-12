@@ -13,6 +13,12 @@ async function bootstrap() {
   startAutosave()
   walkManager.init()
   initWakeLock()
+  // Sync du journal ☁ (si un jeton est configuré) : à l'ouverture, puis toutes les 10 min
+  const { gistSync } = await import('./core/gistSync')
+  if (gistSync.enabled) {
+    void gistSync.sync()
+    setInterval(() => void gistSync.sync(), 10 * 60_000)
+  }
   if (import.meta.env.DEV) {
     // Accès console au store en dev (debug/tests uniquement)
     const { useGameStore } = await import('./core/state/store')
